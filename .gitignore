@@ -3,5 +3,13 @@ stock_nlp.db
 .env
 *.log
 *.tmp
-__pycache__
-news.duckdb
+__pycache__/
+*.pyc
+*.pyo
+news.duckdb*
+*.duckdb*
+.pytest_cache/
+venv/
+models/
+.coverage
+htmlcov/

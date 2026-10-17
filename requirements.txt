@@ -1,0 +1,18 @@
+# ── Real-time Financial News Intelligence Engine ──────────────────────────────
+# Core runtime
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+duckdb>=1.1.0
+feedparser>=6.0.11
+requests>=2.32.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# NLP / ML
+transformers>=4.41.0
+torch>=2.3.0
+huggingface-hub>=0.23.0
+
+# Dev / test
+pytest>=8.0.0
+httpx>=0.27.0        # needed by FastAPI TestClient
