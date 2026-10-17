@@ -1,36 +1,35 @@
-# Stock NLP v1 — News Sentiment Backtest
+# Stock NLP v2 — Full-corpus DuckDB pipeline
 
-Predicts next-day stock movement from news sentiment (FinBERT).
+Upgrade from v1: stores the entire multi-source news corpus in DuckDB,
+uses backtest-safe trading timestamps, and dedups syndicated headlines.
 
 ## Setup
-    python -m venv venv
-    source venv/bin/activate        # Windows: venv\Scripts\activate
-    pip install transformers torch yfinance pandas vectorbt requests datasets
+    pip install duckdb datasets huggingface_hub transformers torch yfinance pandas vectorbt
+    huggingface-cli login            # after accepting dataset terms
 
-## Run (in order)
-1. `python fetch_news.py`   — pulls 6 months of headlines from GDELT into stock_nlp.db
-2. `python score_news.py`   — FinBERT scores every headline (first run downloads ~400MB model)
-3. `python backtest.py`     — joins scores with prices, runs vectorbt backtest, prints stats + correlation
+## Run in order
+1. `python db.py`                      -> creates news.duckdb schema
+2. `python load_duckdb.py`             -> streams all SUBSETS (edit list in file) into DuckDB
+                                          (or: python load_duckdb.py benzinga_6000stocks)
+3. `python explore.py`                 -> data-quality report: coverage, date ranges, URL gaps
+4. `python score_news.py`              -> FinBERT scores everything un-scored
+5. `python backtest.py 10`             -> backtest top-10-coverage tickers
 
-### Loading the historical Hugging Face dataset
+## Schema (news.duckdb)
+- raw_news: subset, event_ts (minute UTC), trading_ts (next NYSE open — USE THIS
+  for backtest alignment), time_precision, text, url, source, extra (raw JSON)
+- news_tickers: (news_id, ticker) many-to-many
+- scores: (news_id, pos, neg, neu, score)  score = pos - neg
 
-`load_news.py` uses the gated `Brianferrell787/financial-news-multisource`
-dataset. Request access on its Hugging Face page, then authenticate before
-running the loader:
+## Why trading_ts and not date
+Day-level rows store midnight UTC in `date` — trading on "today's news" with that
+timestamp is lookahead bias. `trading_ts` is the next NYSE session open: scores
+attached to it are tradable. backtest.py aligns on trading_ts then shifts 1 day.
 
-    hf auth login
-    python load_news.py
+## Tuning knobs
+- load_duckdb.py: SUBSETS list (all 24 available; finance-relevant preselected)
+- backtest.py: BUY/SELL_THRESHOLD, MIN_HEADLINES, MAX_ROWS_PER_TICKER_DAY
 
-Alternatively, set a Hugging Face access token in `HF_TOKEN` for that command.
-Do not commit the token to the repository.
-
-## What to look for
-- corr(score, next-day return) per ticker: consistently positive = signal exists
-- Strategy total return vs buy & hold baseline
-- If corr hovers near 0, sentiment alone isn't predictive on your data — tune thresholds
-  or add features before scaling anything.
-
-## Files
-- fetch_news.py — GDELT news ingestion (edit TICKERS / TIMESPAN at top)
-- score_news.py — FinBERT inference into SQLite
-- backtest.py   — vectorbt backtest + correlation sanity check
+## Validation step (before trusting backtest)
+Score ~1000 rows of subset `finsen_us_2007_2023` — its extra_fields carry human
+sentiment labels. Compare FinBERT score sign vs label: want >=75% agreement.

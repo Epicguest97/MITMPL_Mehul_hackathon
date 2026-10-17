@@ -1,71 +1,77 @@
 """
-backtest.py — Join daily avg sentiment scores with next-day returns via yfinance.
-Usage: python backtest.py
+backtest.py — Per-ticker daily sentiment vs next-day returns (DuckDB + yfinance + vectorbt).
+
+Dedup note: the corpus warns of cross-subset duplicates (syndicated headlines).
+We dedup on (ticker, trading day, normalized text) inside the query.
+Usage: python backtest.py [N_TOP_TICKERS]   (default 10, uses tickers with most headlines)
 """
-import sqlite3
+import sys
 import pandas as pd
 import yfinance as yf
 import vectorbt as vbt
+from db import get_con
 
 BUY_THRESHOLD = 0.1
 SELL_THRESHOLD = -0.1
+MIN_HEADLINES = 300          # ignore tickers with thin coverage
+MAX_ROWS_PER_TICKER_DAY = 50 # cap: a flood of articles on one day shouldn't dominate
 
-def load_scores():
-    conn = sqlite3.connect("stock_nlp.db")
-    df = pd.read_sql_query("""
-        SELECT n.ticker, n.seen_date, s.score
-        FROM news n JOIN scores s ON n.id = s.news_id
-    """, conn)
-    # GDELT: "20260415T083000Z" | HF datasets: ISO "2026-04-15T08:30:00Z"
-    iso = pd.to_datetime(df["seen_date"], format="%Y%m%dT%H%M%SZ", errors="coerce")
-    df["date"] = iso.fillna(pd.to_datetime(df["seen_date"], utc=True, errors="coerce")).dt.tz_localize(None)
-    return df.dropna(subset=["date"])
+def daily_scores(con, n_top):
+    return con.execute(f"""
+        WITH dedup AS (
+            SELECT DISTINCT ticker, CAST(trading_ts AS DATE) d,
+                   trim(lower(text)) AS norm_text, score
+            FROM news_tickers t
+            JOIN raw_news n USING(news_id)
+            JOIN scores s USING(news_id)
+        ),
+        capped AS (
+            SELECT *, row_number() OVER (PARTITION BY ticker, d ORDER BY score DESC) rn
+            FROM dedup
+        )
+        SELECT ticker, d, AVG(score) avg_score, COUNT(*) n_news
+        FROM capped WHERE rn <= {MAX_ROWS_PER_TICKER_DAY}
+        GROUP BY 1, 2
+        HAVING COUNT(*) >= 2  -- need at least 2 articles that day to trust the average
+    """).df()
 
-def daily_scores(df):
-    # Average score per ticker per day
-    daily = df.groupby([df["ticker"], df["date"].dt.date])["score"].mean().reset_index()
-    daily["date"] = pd.to_datetime(daily["date"])
-    return daily
+def main():
+    n_top = int(sys.argv[1]) if len(sys.argv) > 1 else 10
+    con = get_con()
+    ds = daily_scores(con, n_top)
 
-def run():
-    scored = daily_scores(load_scores())
-    tickers = sorted(scored["ticker"].unique())
-    print(f"Tickers: {tickers}")
+    counts = ds.groupby("ticker")["n_news"].sum().sort_values(ascending=False)
+    tickers = [t for t in counts.index if counts[t] >= MIN_HEADLINES][:n_top]
+    print(f"Backtesting: {tickers}")
+    if not tickers:
+        print("No tickers pass MIN_HEADLINES — lower it or run load/score first.")
+        return
 
-    prices = yf.download(tickers, start=scored["date"].min().strftime("%Y-%m-%d"),
-                         auto_adjust=True, progress=False)["Close"]
+    prices = yf.download(tickers, start=str(ds["d"].min()), auto_adjust=True,
+                         progress=False)["Close"]
     if isinstance(prices, pd.Series):
         prices = prices.to_frame(tickers[0])
     prices = prices.ffill()
 
-    # Build signal matrix (score reshaped into a price-like DataFrame, forward-filled)
-    sig = pd.DataFrame(index=prices.index, columns=tickers, dtype=float)
+    sig = pd.DataFrame(0.0, index=prices.index, columns=tickers)
     for t in tickers:
-        s = scored[scored["ticker"] == t].set_index("date")["score"]
+        s = ds[ds["ticker"] == t].set_index("d")["avg_score"]
         sig[t] = s.reindex(prices.index).ffill().fillna(0.0)
-
-    # Shift signals by 1 day: trade on next day's open-ish (close-to-close approximation)
-    sig = sig.shift(1)
-
-    entries = sig > BUY_THRESHOLD
-    exits = sig < SELL_THRESHOLD
+    sig = sig.shift(1)  # trade next day — no lookahead
 
     pf = vbt.Portfolio.from_signals(
-        prices, entries=entries, exits=exits,
-        init_cash=100_000, fees=0.001,  # 0.1% commission
+        prices, entries=sig > BUY_THRESHOLD, exits=sig < SELL_THRESHOLD,
+        init_cash=100_000, fees=0.001,
     )
     print(pf.stats())
-    print("\n--- Baseline comparison (buy & hold) ---")
-    bh = vbt.Portfolio.from_holding(prices, init_cash=100_000)
-    print(bh.stats())
+    print("\n--- Buy & hold baseline ---")
+    print(vbt.Portfolio.from_holding(prices, init_cash=100_000).stats())
 
-    # Quick sanity: correlation of score vs next-day return
     rets = prices.pct_change()
+    print("\n--- corr(avg_score, next-day return) ---")
     for t in tickers:
-        aligned = pd.concat([sig[t], rets[t]], axis=1).dropna()
-        aligned.columns = ["score", "ret"]
-        corr = aligned["score"].corr(aligned["ret"])
-        print(f"{t}: corr(score, next-day return) = {corr:.4f}")
+        al = pd.concat([sig[t], rets[t]], axis=1).dropna()
+        print(f"{t}: n={len(al):5d}  corr={al.iloc[:,0].corr(al.iloc[:,1]):+.4f}")
 
 if __name__ == "__main__":
-    run()
+    main()

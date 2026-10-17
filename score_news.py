@@ -1,58 +1,50 @@
 """
-score_news.py — Score un-scored headlines with FinBERT.
-First run downloads the model (~400MB). Usage: python score_news.py
+score_news.py — FinBERT-score un-scored articles. Reads/writes DuckDB directly.
+Usage: python score_news.py [subset]      (default: all subsets)
 """
-import sqlite3
+import sys
 import torch
+import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from db import get_con
 
 MODEL = "yiyanghkust/finbert-tone"
-LABELS = ["positive", "negative", "neutral"]
-
-def init_db():
-    conn = sqlite3.connect("stock_nlp.db")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS scores (
-            news_id INTEGER PRIMARY KEY,
-            pos REAL, neg REAL, neu REAL, score REAL,
-            FOREIGN KEY (news_id) REFERENCES news(id)
-        )""")
-    return conn
 
 def main():
-    conn = init_db()
-    rows = conn.execute("""
-        SELECT n.id, n.title FROM news n
-        LEFT JOIN scores s ON n.id = s.news_id
-        WHERE s.news_id IS NULL
-    """).fetchall()
-    print(f"{len(rows)} headlines to score...")
+    subset = sys.argv[1] if len(sys.argv) > 1 else None
+    con = get_con()
+    where = "AND n.subset = ?" if subset else ""
+    params = [subset] if subset else []
+    df = con.execute(f"""
+        SELECT n.news_id, n.text
+        FROM raw_news n LEFT JOIN scores s USING(news_id)
+        WHERE s.news_id IS NULL {where}
+        ORDER BY n.news_id
+    """, params).df()
+    print(f"{len(df)} articles to score...")
+    if df.empty:
+        return
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL)
+    tok = AutoTokenizer.from_pretrained(MODEL)
     model = AutoModelForSequenceClassification.from_pretrained(MODEL)
     model.eval()
 
-    BATCH = 32
-    done = 0
+    B = 32
+    out = []
     with torch.no_grad():
-        for i in range(0, len(rows), BATCH):
-            batch = rows[i:i + BATCH]
-            texts = [t[:512] for _, t in batch]  # FinBERT max length
-            inputs = tokenizer(texts, padding=True, truncation=True,
-                               return_tensors="pt", max_length=512)
-            logits = model(**inputs).logits
-            probs = torch.softmax(logits, dim=-1)
-            for (nid, _), p in zip(batch, probs):
-                pos, neg, neu = p[0].item(), p[1].item(), p[2].item()
-                score = pos - neg
-                conn.execute(
-                    "INSERT OR REPLACE INTO scores VALUES (?,?,?,?,?)",
-                    (nid, pos, neg, neu, score),
-                )
-            conn.commit()
-            done += len(batch)
-            print(f"  scored {done}/{len(rows)}")
-    print("Done.")
+        for i in range(0, len(df), B):
+            texts = [t[:512] for t in df["text"].iloc[i:i+B]]
+            inputs = tok(texts, padding=True, truncation=True, return_tensors="pt", max_length=512)
+            probs = torch.softmax(model(**inputs).logits, dim=-1)
+            for nid, p in zip(df["news_id"].iloc[i:i+B], probs):
+                out.append((int(nid), p[0].item(), p[1].item(), p[2].item(),
+                            p[0].item() - p[1].item()))
+            if i and i % (B*200) == 0:
+                print(f"  {i}/{len(df)}")
+    res = pd.DataFrame(out, columns=["news_id", "pos", "neg", "neu", "score"])
+    con.register("_s", res)
+    con.execute("INSERT OR REPLACE INTO scores SELECT news_id,pos,neg,neu,score FROM _s")
+    print(f"Scored {len(res)} articles.")
 
 if __name__ == "__main__":
     main()
