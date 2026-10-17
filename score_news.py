@@ -5,7 +5,7 @@ Usage: python score_news.py [subset]      (default: all subsets)
 import sys
 import torch
 import pandas as pd
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import BertForSequenceClassification, BertTokenizer
 from db import get_con
 
 MODEL = "yiyanghkust/finbert-tone"
@@ -25,8 +25,8 @@ def main():
     if df.empty:
         return
 
-    tok = AutoTokenizer.from_pretrained(MODEL)
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL)
+    tok = BertTokenizer.from_pretrained(MODEL)
+    model = BertForSequenceClassification.from_pretrained(MODEL)
     model.eval()
 
     B = 32
@@ -37,8 +37,8 @@ def main():
             inputs = tok(texts, padding=True, truncation=True, return_tensors="pt", max_length=512)
             probs = torch.softmax(model(**inputs).logits, dim=-1)
             for nid, p in zip(df["news_id"].iloc[i:i+B], probs):
-                out.append((int(nid), p[0].item(), p[1].item(), p[2].item(),
-                            p[0].item() - p[1].item()))
+                out.append((int(nid), p[1].item(), p[2].item(), p[0].item(),
+                            p[1].item() - p[2].item()))
             if i and i % (B*200) == 0:
                 print(f"  {i}/{len(df)}")
     res = pd.DataFrame(out, columns=["news_id", "pos", "neg", "neu", "score"])
