@@ -7,11 +7,12 @@ from db import get_con
 def main():
     con = get_con()
     print("== Rows per subset ==")
-    print(con.execute("SELECT subset, COUNT(*) n, MIN(trading_ts) first, MAX(trading_ts) last FROM raw_news GROUP BY 1 ORDER BY n DESC").df().to_string())
+    print(con.execute("SELECT subset, COUNT(*) n, MIN(trading_ts) AS first_seen, MAX(trading_ts) AS last_seen FROM raw_news GROUP BY 1 ORDER BY n DESC").df().to_string())
     print("\n== Ticker coverage (top 25 by headline count) ==")
     print(con.execute("""
         SELECT ticker, COUNT(*) n, COUNT(DISTINCT subset) subsets,
-               MIN(CAST(trading_ts AS DATE)) first, MAX(CAST(trading_ts AS DATE)) last
+               MIN(CAST(trading_ts AS DATE)) AS first_seen,
+               MAX(CAST(trading_ts AS DATE)) AS last_seen
         FROM news_tickers t JOIN raw_news n USING(news_id)
         GROUP BY 1 ORDER BY n DESC LIMIT 25
     """).df().to_string())

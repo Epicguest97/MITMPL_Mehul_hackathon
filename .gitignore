@@ -3,3 +3,5 @@ stock_nlp.db
 .env
 *.log
 *.tmp
+__pycache__
+news.duckdb.py
