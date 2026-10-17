@@ -4,4 +4,4 @@ stock_nlp.db
 *.log
 *.tmp
 __pycache__
-news.duckdb.py
+news.duckdb
