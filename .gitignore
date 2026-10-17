@@ -1,0 +1,5 @@
+stock_nlp.db
+.DS_Store
+.env
+*.log
+*.tmp

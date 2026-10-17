@@ -16,8 +16,9 @@ def load_scores():
         SELECT n.ticker, n.seen_date, s.score
         FROM news n JOIN scores s ON n.id = s.news_id
     """, conn)
-    # GDELT seendate: "20260415T083000Z" -> date
-    df["date"] = pd.to_datetime(df["seen_date"], format="%Y%m%dT%H%M%SZ", errors="coerce").dt.tz_localize(None)
+    # GDELT: "20260415T083000Z" | HF datasets: ISO "2026-04-15T08:30:00Z"
+    iso = pd.to_datetime(df["seen_date"], format="%Y%m%dT%H%M%SZ", errors="coerce")
+    df["date"] = iso.fillna(pd.to_datetime(df["seen_date"], utc=True, errors="coerce")).dt.tz_localize(None)
     return df.dropna(subset=["date"])
 
 def daily_scores(df):
