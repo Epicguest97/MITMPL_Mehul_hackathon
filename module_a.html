@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Module A: Stock Index Rebalancer &amp; Historical Weight Trajectory Dashboard</title>
+</head>
+<body>
+
+<h1>Module A: Stock Index Rebalancer &amp; Weight Trajectory Dashboard</h1>
+<p>
+  Dynamic equity index rebalancing engine: Manages a 20-stock blue-chip benchmark index, 
+  executing real-time <strong>ADD</strong>, <strong>REMOVE</strong>, <strong>OVERWEIGHT</strong>, 
+  <strong>UNDERWEIGHT</strong>, and <strong>HOLD</strong> decisions driven by live NLP news sentiment, 
+  DeBERTa event severity, and market impact scores.
+</p>
+
+<!-- ── Modular Platform Navigation ── -->
+<p style="background:#eef2f7; padding:10px 14px; border:1px solid #b0c4de;">
+  <strong>System Navigation (3 Modular Modules):</strong>
+  &nbsp;&nbsp;
+  <a href="api_setup.html" style="color:#0055aa; font-weight:bold;">&larr; Open Page 1: Setting Up API &amp; NLP Risk Engine</a>
+  &nbsp;|&nbsp;
+  <strong>[Page 2: Module A - Stock Index Rebalancer]</strong>
+  &nbsp;|&nbsp;
+  <a href="module_b.html" style="color:#0055aa; font-weight:bold;">&rarr; Open Page 3: Module B - Portfolio Stress Testing</a>
+</p>
+
+<hr>
+
+<!-- ── Server Configuration ── -->
+<p>
+  API Base URL: <input id="api_base" value="http://localhost:8000" size="30">
+  &nbsp;
+  <button onclick="checkHealth()">Check Health</button>
+  <span id="health_status"></span>
+</p>
+
+<hr>
+
+<!-- ── Section 1: Baseline 20-Stock Index Portfolio ── -->
+<h2>1. Baseline 20-Stock Index Portfolio (Equal Weight: 5.0% Each)</h2>
+<p>
+  The index maintains a baseline of <strong>20 large-cap US blue-chip equities</strong> (5.0% equal weight each, totaling 100.0%).
+  A secondary reserve pool (AMD, NFLX, WMT, BAC, CRM, ORCL, CSCO, QCOM, CVX, GS) is monitored to immediately replace constituents upon removal.
+</p>
+
+<ul>
+  <li><strong>REMOVE</strong>: Constituent weight drops to <strong>0.0%</strong> upon catastrophic negative event or severe credit/insolvency news.</li>
+  <li><strong>ADD</strong>: Top-ranked candidate from reserve pool is promoted to <strong>5.0%</strong> weight to restore 20-stock universe.</li>
+  <li><strong>OVERWEIGHT</strong>: Constituent weight is boosted (up to <strong>8.5%</strong>) on high-impact positive earnings or product innovations.</li>
+  <li><strong>UNDERWEIGHT</strong>: Constituent weight is reduced (down to <strong>1.5%</strong>) on negative news pressure.</li>
+  <li><strong>HOLD</strong>: Baseline weight (<strong>5.0%</strong>) maintained when sentiment is neutral.</li>
+</ul>
+
+<p>
+  <button onclick="runIndexRebalance()">Execute Index Rebalance (From Stored News)</button>
+  &nbsp;
+  <button onclick="toggleInitialPortfolio()">View / Hide Initial 20-Stock Constituents</button>
+</p>
+
+<div id="initial_portfolio_view" style="display:none; margin-bottom:12px;">
+  <h3>Initial 20-Stock Baseline Constituents</h3>
+  <table border="1" cellpadding="4" cellspacing="0" id="initial_portfolio_table">
+    <tr><th>#</th><th>Ticker</th><th>Company Name</th><th>Sector</th><th>Initial Weight</th><th>Baseline Role</th></tr>
+  </table>
+  <br>
+</div>
+
+<!-- Rebalance Execution Summary -->
+<div id="rebalance_summary_out"></div>
+
+<!-- Decisions & Explanations Table -->
+<div id="rebalance_decisions_out"></div>
+
+<hr>
+
+<!-- ── Section 2: Interactive Breaking News Simulation ── -->
+<h2>2. Simulate Breaking News &amp; Immediate Rebalance</h2>
+<p>Test how breaking headlines instantly trigger removals, replacements, or re-weighting in the index:</p>
+<p>
+  <strong>Quick Scenarios:</strong>
+  &nbsp;
+  <button onclick="simulateScenario('TSLA', 'Tesla files for emergency bankruptcy and credit rating downgraded to junk after massive debt default')">
+    Simulate TSLA Default (Triggers REMOVE)
+  </button>
+  &nbsp;
+  <button onclick="simulateScenario('AAPL', 'Apple surges to record all-time high as quarterly revenue and EPS beat consensus')">
+    Simulate AAPL Beat (Triggers OVERWEIGHT)
+  </button>
+  &nbsp;
+  <button onclick="simulateScenario('NVDA', 'Nvidia unveils revolutionary next-gen AI platform with record commercial orders')">
+    Simulate NVDA Launch (Triggers OVERWEIGHT)
+  </button>
+</p>
+
+<p>
+  <strong>Custom Breaking Headline:</strong><br>
+  <input id="sim_ticker" placeholder="Ticker (e.g. TSLA)" size="8">
+  <input id="sim_headline" placeholder="Enter custom headline text..." size="80">
+  <button onclick="simulateCustomBreakingNews()">Simulate News &amp; Rebalance</button>
+</p>
+<div id="sim_article_out"></div>
+
+<hr>
+
+<!-- ── Section 3: Historical Stock Weight Trajectory Dashboard ── -->
+<h2>3. Stock Index Weight Trajectory Dashboard (Weights Over Time)</h2>
+<p>
+  Visualizes how constituent stock weights dynamically evolve over time (Day &minus;6 to Day 0) 
+  in response to real-time news sentiment, event severity, and index rebalancing rules.
+</p>
+
+<p>
+  <button onclick="loadWeightHistory()">Load Weight Trajectory Dashboard</button>
+  &nbsp;
+  Lookback:
+  <select id="history_days" onchange="loadWeightHistory()">
+    <option value="7" selected>7 Days</option>
+    <option value="14">14 Days</option>
+    <option value="30">30 Days</option>
+  </select>
+  &nbsp;
+  Observation Steps:
+  <select id="history_points" onchange="loadWeightHistory()">
+    <option value="7" selected>7 Time Points</option>
+    <option value="10">10 Time Points</option>
+    <option value="14">14 Time Points</option>
+  </select>
+  &nbsp;
+  Filter View:
+  <select id="history_filter" onchange="applyWeightHistoryFilter()">
+    <option value="all">Show All Constituents</option>
+    <option value="changed" selected>Show Active / Changed Stocks</option>
+    <option value="overweight">Overweight Only (> 5.0%)</option>
+    <option value="underweight">Underweight / Removed (< 5.0%)</option>
+  </select>
+</p>
+
+<div id="trajectory_status_banner" style="margin-bottom:8px;"></div>
+
+<!-- Ticker toggles container -->
+<div id="ticker_toggles_container" style="margin-bottom: 10px; border: 1px solid #ccc; padding: 8px;">
+  <strong>Constituent Stock Toggles:</strong>
+  &nbsp;
+  <button type="button" onclick="toggleAllTickers(true)">Select All</button>
+  <button type="button" onclick="toggleAllTickers(false)">Deselect All</button>
+  <button type="button" onclick="selectChangedTickersOnly()">Active Changes Only</button>
+  <br><br>
+  <div id="ticker_checkboxes"></div>
+</div>
+
+<!-- Canvas Chart Container -->
+<div style="position: relative; display: inline-block;">
+  <canvas id="weightHistoryCanvas" width="940" height="420" style="border:1px solid #999; background:#ffffff;"></canvas>
+  <div id="chart_tooltip" style="display:none; position:absolute; pointer-events:none; background:rgba(255,255,255,0.96); border:1px solid #333; padding:8px 12px; font-size:12px; font-family:monospace; box-shadow: 2px 2px 6px rgba(0,0,0,0.25); max-height:280px; overflow-y:auto; z-index:100;"></div>
+</div>
+
+<p><small>Chart guide: Dashed dark line marks the 5.0% equal-weight baseline. Solid colored lines depict constituent weight paths over time. Hover cursor over the chart to inspect cross-sectional weights at any date point. Click legend items or checkboxes above to toggle individual stock lines.</small></p>
+
+<!-- Trajectory Table -->
+<h3>Constituent Weight Evolution Breakdown</h3>
+<div id="weight_trajectory_table_out"></div>
+
+<hr>
+
+<!-- ── Next Steps Navigation ── -->
+<h3>Next Modules in Platform Workflow:</h3>
+<p>
+  &bull; <a href="api_setup.html" style="font-size:16px; font-weight:bold; color:#0055aa;">&larr; Page 1: Setting Up API &amp; NLP Risk Engine</a><br>
+  &bull; <a href="module_b.html" style="font-size:16px; font-weight:bold; color:#0055aa;">Page 3: Module B - Strategic Portfolio Stress Testing for Wholesale Banking &rarr;</a>
+</p>
+
+<script>
+  function base() {
+    return document.getElementById("api_base").value.replace(/\/$/, "");
+  }
+
+  function fmt(obj) {
+    return JSON.stringify(obj, null, 2);
+  }
+
+  function escHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById("health_status");
+    try {
+      const r = await fetch(base() + "/health");
+      const d = await r.json();
+      el.textContent = " -> " + d.status;
+    } catch (e) {
+      el.textContent = " -> ERROR: " + e;
+    }
+  }
+
+  let _rebalanceData = null;
+
+  async function runIndexRebalance() {
+    const summaryEl = document.getElementById("rebalance_summary_out");
+    const decisionsEl = document.getElementById("rebalance_decisions_out");
+    summaryEl.innerHTML = "<p>Evaluating 20-stock index against stored news signals...</p>";
+    decisionsEl.innerHTML = "";
+
+    try {
+      const r = await fetch(base() + "/rebalance");
+      const d = await r.json();
+      _rebalanceData = d;
+      renderRebalanceResults(d);
+    } catch (e) {
+      summaryEl.innerHTML = "<p>ERROR running rebalancer: " + escHtml(e) + "</p>";
+    }
+  }
+
+  function toggleInitialPortfolio() {
+    const view = document.getElementById("initial_portfolio_view");
+    if (view.style.display === "none") {
+      view.style.display = "";
+      if (!_rebalanceData) {
+        fetch(base() + "/rebalance")
+          .then(r => r.json())
+          .then(d => {
+            _rebalanceData = d;
+            populateInitialTable(d.initial_stocks_detail);
+          });
+      } else {
+        populateInitialTable(_rebalanceData.initial_stocks_detail);
+      }
+    } else {
+      view.style.display = "none";
+    }
+  }
+
+  function populateInitialTable(stocks) {
+    const table = document.getElementById("initial_portfolio_table");
+    let html = "<tr><th>#</th><th>Ticker</th><th>Company Name</th><th>Sector</th><th>Initial Weight</th><th>Baseline Role</th></tr>";
+    (stocks || []).forEach(function(s, idx) {
+      html += "<tr>";
+      html += "<td>" + (idx + 1) + "</td>";
+      html += "<td><strong>" + escHtml(s.ticker) + "</strong></td>";
+      html += "<td>" + escHtml(s.name) + "</td>";
+      html += "<td>" + escHtml(s.sector) + "</td>";
+      html += "<td>" + (s.initial_weight * 100).toFixed(1) + "%</td>";
+      html += "<td>Core Index Constituent</td>";
+      html += "</tr>";
+    });
+    table.innerHTML = html;
+  }
+
+  function renderRebalanceResults(data) {
+    const summaryEl = document.getElementById("rebalance_summary_out");
+    const decisionsEl = document.getElementById("rebalance_decisions_out");
+    const s = data.summary;
+
+    let sumHtml = "<hr><h3>Rebalance Execution Summary (as of " + escHtml(data.as_of.substring(0, 19).replace("T", " ")) + ")</h3>";
+    sumHtml += "<table border='1' cellpadding='4' cellspacing='0'>";
+    sumHtml += "<tr><th>Initial Stocks</th><th>Active Rebalanced Stocks</th><th>Removed</th><th>Added</th><th>Overweight</th><th>Underweight</th><th>Hold</th><th>Index Turnover</th></tr>";
+    sumHtml += "<tr>";
+    sumHtml += "<td>" + s.total_initial_stocks + "</td>";
+    sumHtml += "<td>" + s.total_rebalanced_stocks + "</td>";
+    sumHtml += "<td><strong><font color='red'>" + s.removed_count + "</font></strong></td>";
+    sumHtml += "<td><strong><font color='green'>" + s.added_count + "</font></strong></td>";
+    sumHtml += "<td>" + s.overweight_count + "</td>";
+    sumHtml += "<td>" + s.underweight_count + "</td>";
+    sumHtml += "<td>" + s.hold_count + "</td>";
+    sumHtml += "<td>" + s.turnover_pct.toFixed(2) + "%</td>";
+    sumHtml += "</tr></table><br>";
+
+    summaryEl.innerHTML = sumHtml;
+
+    // Decisions table
+    let dHtml = "<h3>Index Rebalancing Decisions &amp; Explanations</h3>";
+    dHtml += "<table border='1' cellpadding='4' cellspacing='0'>";
+    dHtml += "<tr>";
+    dHtml += "<th>#</th><th>Ticker</th><th>Company &amp; Sector</th><th>Decision Action</th><th>Initial Wt</th><th>Rebalanced Wt</th><th>Change</th><th>News Sentiment</th><th>Primary Event</th><th>Decision Rationale</th><th>Triggering News &amp; Impact</th>";
+    dHtml += "</tr>";
+
+    data.decisions.forEach(function(d, i) {
+      let actionColor = "black";
+      if (d.action === "REMOVE") actionColor = "red";
+      else if (d.action === "ADD") actionColor = "green";
+      else if (d.action === "OVERWEIGHT") actionColor = "blue";
+      else if (d.action === "UNDERWEIGHT") actionColor = "brown";
+
+      const initPct = (d.initial_weight * 100).toFixed(1) + "%";
+      const newPct  = (d.new_weight * 100).toFixed(1) + "%";
+      const chgPct  = (d.weight_change >= 0 ? "+" : "") + (d.weight_change * 100).toFixed(1) + "%";
+      const sigStr  = (d.signal_score >= 0 ? "+" : "") + d.signal_score.toFixed(3);
+
+      let newsHtml = "<em>No recent news</em>";
+      if (d.triggering_news && d.triggering_news.length > 0) {
+        newsHtml = "<ul>";
+        d.triggering_news.forEach(function(n) {
+          const sentColor = n.sentiment_score >= 0 ? "green" : "red";
+          newsHtml += "<li>";
+          newsHtml += "<a href='" + escHtml(n.url) + "' target='_blank'><strong>" + escHtml(n.title) + "</strong></a>";
+          newsHtml += "<br><small>Source: " + escHtml(n.source)
+                    + " | Sentiment: <font color='" + sentColor + "'>" + n.sentiment_score.toFixed(2) + " (" + n.sentiment_label + ")</font>"
+                    + " | Event: " + escHtml(n.event_type)
+                    + " | Impact: <strong>" + n.impact.toFixed(1) + "/10</strong>"
+                    + "</small></li>";
+        });
+        newsHtml += "</ul>";
+      }
+
+      dHtml += "<tr>";
+      dHtml += "<td>" + (i + 1) + "</td>";
+      dHtml += "<td><strong>" + escHtml(d.ticker) + "</strong></td>";
+      dHtml += "<td>" + escHtml(d.company_name) + "<br><small>(" + escHtml(d.sector) + ")</small></td>";
+      dHtml += "<td><strong><font color='" + actionColor + "'>" + escHtml(d.action) + "</font></strong></td>";
+      dHtml += "<td>" + initPct + "</td>";
+      dHtml += "<td>" + newPct + "</td>";
+      dHtml += "<td><strong>" + chgPct + "</strong></td>";
+      dHtml += "<td>" + sigStr + "</td>";
+      dHtml += "<td>" + escHtml(d.event_type) + "</td>";
+      dHtml += "<td>" + escHtml(d.reason) + "</td>";
+      dHtml += "<td>" + newsHtml + "</td>";
+      dHtml += "</tr>";
+    });
+
+    dHtml += "</table>";
+    decisionsEl.innerHTML = dHtml;
+  }
+
+  async function simulateScenario(ticker, headline) {
+    document.getElementById("sim_ticker").value = ticker;
+    document.getElementById("sim_headline").value = headline;
+    await executeSimulation(ticker, headline);
+  }
+
+  async function simulateCustomBreakingNews() {
+    const ticker = document.getElementById("sim_ticker").value.trim().toUpperCase();
+    const headline = document.getElementById("sim_headline").value.trim();
+    if (!headline) {
+      alert("Please enter a headline text.");
+      return;
+    }
+    await executeSimulation(ticker, headline);
+  }
+
+  async function executeSimulation(ticker, headline) {
+    const out = document.getElementById("sim_article_out");
+    out.innerHTML = "<p>Running NLP pipeline on simulated headline &amp; executing rebalance...</p>";
+    try {
+      const r = await fetch(base() + "/rebalance/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: ticker, headline: headline })
+      });
+      const d = await r.json();
+      _rebalanceData = d;
+
+      const simArt = d.simulated_article;
+      let html = "<hr><h4>Simulated Breaking News Ingestion:</h4>";
+      html += "<table border='1' cellpadding='4' cellspacing='0'>";
+      html += "<tr><th>Headline</th><th>Ticker</th><th>Sentiment Score</th><th>Event Classification</th><th>Impact Score (1-10)</th></tr>";
+      html += "<tr>";
+      html += "<td>" + escHtml(simArt.title) + "</td>";
+      html += "<td><strong>" + escHtml((simArt.tickers || []).join(", ")) + "</strong></td>";
+      html += "<td>" + simArt.sentiment_score.toFixed(3) + " (" + escHtml(simArt.sentiment_label) + ")</td>";
+      html += "<td>" + escHtml(simArt.event_type) + " (conf=" + simArt.event_confidence + ")</td>";
+      html += "<td><strong>" + simArt.impact.toFixed(1) + "/10</strong></td>";
+      html += "</tr></table>";
+
+      out.innerHTML = html;
+      renderRebalanceResults(d);
+
+      if (d.history) {
+        _historyData = d.history;
+        const statusEl = document.getElementById("trajectory_status_banner");
+        if (statusEl) {
+          statusEl.innerHTML = "<strong><font color='green'>Dashboard updated with simulated breaking news event!</font></strong> Observe constituent weight trajectories below.";
+        }
+        initWeightHistoryView(d.history);
+      }
+    } catch (e) {
+      out.innerHTML = "<p>ERROR simulating breaking news: " + escHtml(e) + "</p>";
+    }
+  }
+
+  // ── Weight History Dashboard Logic ──
+  const TICKER_COLORS = {
+    "AAPL": "#007aff", "MSFT": "#00a4ef", "NVDA": "#76b900", "AMZN": "#ff9900",
+    "GOOGL": "#ea4335", "META": "#0668e1", "TSLA": "#cc0000", "BRK.B": "#5d3a1a",
+    "JPM": "#0f4c81", "V": "#1a1f71", "UNH": "#002677", "JNJ": "#d51900",
+    "XOM": "#ed1b2d", "PG": "#003cae", "HD": "#f96302", "MA": "#eb001b",
+    "LLY": "#d13814", "COST": "#005baa", "ABBV": "#006699", "AVGO": "#cc092f",
+    "AMD": "#00873d", "NFLX": "#e50914", "WMT": "#0071ce", "BAC": "#012169",
+    "CRM": "#00a1e0", "ORCL": "#f80000", "CSCO": "#049fd9", "QCOM": "#3253dc",
+    "CVX": "#002d62", "GS": "#7399c6"
+  };
+
+  function getTickerColor(ticker, index) {
+    if (TICKER_COLORS[ticker]) return TICKER_COLORS[ticker];
+    const hues = [210, 140, 25, 280, 340, 50, 180, 310, 95, 15, 230, 160];
+    const h = hues[index % hues.length];
+    return "hsl(" + h + ", 75%, 42%)";
+  }
+
+  let _historyData = null;
+  let _selectedTickers = new Set();
+  let _hoveredIndex = -1;
+  let _legendItems = [];
+
+  async function loadWeightHistory() {
+    const daysEl = document.getElementById("history_days");
+    const pointsEl = document.getElementById("history_points");
+    const days = daysEl ? daysEl.value : "7";
+    const points = pointsEl ? pointsEl.value : "7";
+    const statusEl = document.getElementById("trajectory_status_banner");
+    if (statusEl) statusEl.innerHTML = "<em>Loading historical weights data...</em>";
+
+    try {
+      const r = await fetch(base() + "/rebalance/history?days=" + days + "&points=" + points);
+      const d = await r.json();
+      _historyData = d;
+      if (statusEl) {
+        statusEl.innerHTML = "<small>Showing <strong>" + d.all_tickers.length + "</strong> constituents across <strong>" + d.dates.length + "</strong> observation points (" + d.dates[0] + " to " + d.dates[d.dates.length - 1] + ").</small>";
+      }
+      initWeightHistoryView(d);
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = "<font color='red'>Failed to load weight history: " + escHtml(e) + "</font>";
+    }
+  }
+
+  function initWeightHistoryView(data) {
+    if (!data || !data.all_tickers) return;
+    const filter = document.getElementById("history_filter") ? document.getElementById("history_filter").value : "changed";
+    updateSelectedTickersByFilter(filter);
+    renderTickerCheckboxes();
+    drawWeightChart();
+    renderTrajectoryTable();
+  }
+
+  function updateSelectedTickersByFilter(filter) {
+    if (!_historyData) return;
+    _selectedTickers.clear();
+    const all = _historyData.all_tickers;
+    const weights = _historyData.weights_by_ticker;
+    const n = _historyData.dates.length;
+
+    if (filter === "all") {
+      all.forEach(t => _selectedTickers.add(t));
+    } else if (filter === "overweight") {
+      all.forEach(t => {
+        const curr = (weights[t] && weights[t][n - 1]) || 0;
+        if (curr > 0.0501) _selectedTickers.add(t);
+      });
+    } else if (filter === "underweight") {
+      all.forEach(t => {
+        const curr = (weights[t] && weights[t][n - 1]) || 0;
+        if (curr < 0.0499) _selectedTickers.add(t);
+      });
+    } else {
+      all.forEach(t => {
+        const series = weights[t] || [];
+        const init = series[0] !== undefined ? series[0] : 0.05;
+        const curr = series[n - 1] !== undefined ? series[n - 1] : 0.05;
+        const changed = Math.abs(curr - init) > 0.001 || series.some(w => Math.abs(w - init) > 0.001);
+        if (changed) _selectedTickers.add(t);
+      });
+      if (_selectedTickers.size === 0) {
+        ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "TSLA"].forEach(t => {
+          if (all.includes(t)) _selectedTickers.add(t);
+        });
+      }
+    }
+  }
+
+  function applyWeightHistoryFilter() {
+    const filter = document.getElementById("history_filter").value;
+    updateSelectedTickersByFilter(filter);
+    renderTickerCheckboxes();
+    drawWeightChart();
+    renderTrajectoryTable();
+  }
+
+  function toggleAllTickers(select) {
+    if (!_historyData) return;
+    _selectedTickers.clear();
+    if (select) {
+      _historyData.all_tickers.forEach(t => _selectedTickers.add(t));
+    }
+    renderTickerCheckboxes();
+    drawWeightChart();
+    renderTrajectoryTable();
+  }
+
+  function selectChangedTickersOnly() {
+    if (document.getElementById("history_filter")) {
+      document.getElementById("history_filter").value = "changed";
+    }
+    applyWeightHistoryFilter();
+  }
+
+  function toggleTicker(ticker) {
+    if (_selectedTickers.has(ticker)) {
+      _selectedTickers.delete(ticker);
+    } else {
+      _selectedTickers.add(ticker);
+    }
+    renderTickerCheckboxes();
+    drawWeightChart();
+    renderTrajectoryTable();
+  }
+
+  function renderTickerCheckboxes() {
+    const container = document.getElementById("ticker_checkboxes");
+    if (!container || !_historyData) return;
+    let html = "";
+    _historyData.all_tickers.forEach((t, i) => {
+      const color = getTickerColor(t, i);
+      const isChecked = _selectedTickers.has(t) ? "checked" : "";
+      const series = _historyData.weights_by_ticker[t] || [];
+      const curr = series[series.length - 1] || 0;
+      const currPct = (curr * 100).toFixed(1) + "%";
+      html += "<label style='margin-right:12px; display:inline-block; font-size:12px; font-family:monospace;'>";
+      html += "<input type='checkbox' " + isChecked + " onchange='toggleTicker(\"" + t + "\")'>";
+      html += "<span style='color:" + color + "; font-weight:bold;'> " + t + "</span> (" + currPct + ")";
+      html += "</label>";
+    });
+    container.innerHTML = html;
+  }
+
+  function drawWeightChart() {
+    const canvas = document.getElementById("weightHistoryCanvas");
+    if (!canvas || !_historyData) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const padLeft = 60;
+    const padRight = 175;
+    const padTop = 45;
+    const padBottom = 45;
+    const plotW = W - padLeft - padRight;
+    const plotH = H - padTop - padBottom;
+
+    const dates = _historyData.dates || [];
+    const numPoints = dates.length;
+    if (numPoints < 2) return;
+
+    let maxWeight = 0.10;
+    _selectedTickers.forEach(t => {
+      const series = _historyData.weights_by_ticker[t] || [];
+      series.forEach(w => {
+        if (w > maxWeight) maxWeight = w;
+      });
+    });
+    maxWeight = Math.ceil(maxWeight * 100 + 1) / 100;
+
+    function xCoord(i) {
+      return padLeft + (i / (numPoints - 1)) * plotW;
+    }
+    function yCoord(w) {
+      return padTop + plotH - (w / maxWeight) * plotH;
+    }
+
+    // Chart background
+    ctx.fillStyle = "#fafafa";
+    ctx.fillRect(padLeft, padTop, plotW, plotH);
+
+    // Grid lines
+    ctx.font = "11px sans-serif";
+    ctx.fillStyle = "#555";
+    ctx.strokeStyle = "#e0e0e0";
+    ctx.lineWidth = 1;
+
+    const ySteps = 5;
+    for (let s = 0; s <= ySteps; s++) {
+      const wVal = (maxWeight / ySteps) * s;
+      const y = yCoord(wVal);
+      ctx.beginPath();
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(padLeft + plotW, y);
+      ctx.stroke();
+
+      ctx.textAlign = "right";
+      ctx.fillText((wVal * 100).toFixed(1) + "%", padLeft - 8, y + 4);
+    }
+
+    // Baseline Reference Line (5.0%)
+    const baselineY = yCoord(0.05);
+    if (baselineY >= padTop && baselineY <= padTop + plotH) {
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = "#444444";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, baselineY);
+      ctx.lineTo(padLeft + plotW, baselineY);
+      ctx.stroke();
+      ctx.fillStyle = "#222";
+      ctx.textAlign = "left";
+      ctx.fillText("5.0% Baseline", padLeft + 6, baselineY - 4);
+      ctx.restore();
+    }
+
+    // X-axis Grid and Date labels
+    dates.forEach((d, i) => {
+      const x = xCoord(i);
+      ctx.strokeStyle = "#eaeaea";
+      ctx.beginPath();
+      ctx.moveTo(x, padTop);
+      ctx.lineTo(x, padTop + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+      ctx.fillText(d, x, padTop + plotH + 18);
+    });
+
+    // Chart title and subtitle
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Index Constituent Weights Over Time (%)", padLeft, padTop - 20);
+
+    ctx.font = "11px sans-serif";
+    ctx.fillStyle = "#666";
+    ctx.fillText("Baseline Equal Weight = 5.0%", padLeft + 300, padTop - 20);
+
+    // Active Vertical Hover Line
+    if (_hoveredIndex >= 0 && _hoveredIndex < numPoints) {
+      const hx = xCoord(_hoveredIndex);
+      ctx.save();
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(hx, padTop);
+      ctx.lineTo(hx, padTop + plotH);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw lines
+    _legendItems = [];
+    let legendY = padTop + 6;
+
+    _historyData.all_tickers.forEach((t, tickerIdx) => {
+      const isSelected = _selectedTickers.has(t);
+      const color = getTickerColor(t, tickerIdx);
+      const series = _historyData.weights_by_ticker[t] || [];
+      const currWeight = series[series.length - 1] || 0;
+
+      if (legendY + 16 <= padTop + plotH + 35) {
+        _legendItems.push({
+          ticker: t,
+          color: color,
+          isSelected: isSelected,
+          x: padLeft + plotW + 15,
+          y: legendY,
+          width: padRight - 20,
+          height: 16,
+          weight: currWeight
+        });
+        legendY += 17;
+      }
+
+      if (!isSelected) return;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      series.forEach((w, i) => {
+        const x = xCoord(i);
+        const y = yCoord(w);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      series.forEach((w, i) => {
+        const x = xCoord(i);
+        const y = yCoord(w);
+        const isHovered = (i === _hoveredIndex);
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, isHovered ? 5.5 : 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (w === 0 && (i > 0 && series[i - 1] > 0)) {
+          ctx.fillStyle = "red";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("✕ " + t + " REMOVED", x, y - 8);
+        } else if (w > 0 && (i > 0 && series[i - 1] === 0)) {
+          ctx.fillStyle = "green";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("▲ " + t + " ADDED", x, y - 8);
+        }
+      });
+    });
+
+    // Draw Legend
+    _legendItems.forEach(item => {
+      ctx.fillStyle = item.isSelected ? item.color : "#ccc";
+      ctx.fillRect(item.x, item.y + 2, 12, 10);
+      ctx.strokeStyle = "#888";
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(item.x, item.y + 2, 12, 10);
+
+      ctx.font = item.isSelected ? "bold 11px monospace" : "11px monospace";
+      ctx.fillStyle = item.isSelected ? "#111" : "#888";
+      ctx.textAlign = "left";
+      const wText = (item.weight * 100).toFixed(1) + "%";
+      ctx.fillText(item.ticker + " (" + wText + ")", item.x + 18, item.y + 11);
+    });
+
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padLeft, padTop, plotW, plotH);
+  }
+
+  function setupCanvasEvents() {
+    const canvas = document.getElementById("weightHistoryCanvas");
+    const tooltip = document.getElementById("chart_tooltip");
+    if (!canvas || !tooltip) return;
+
+    canvas.onmousemove = function(e) {
+      if (!_historyData) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const padLeft = 60;
+      const padRight = 175;
+      const padTop = 45;
+      const padBottom = 45;
+      const plotW = canvas.width - padLeft - padRight;
+      const plotH = canvas.height - padTop - padBottom;
+      const dates = _historyData.dates || [];
+
+      if (mouseX >= padLeft - 10 && mouseX <= padLeft + plotW + 10 && mouseY >= padTop && mouseY <= padTop + plotH) {
+        const stepW = plotW / (dates.length - 1);
+        const idx = Math.max(0, Math.min(dates.length - 1, Math.round((mouseX - padLeft) / stepW)));
+        _hoveredIndex = idx;
+        drawWeightChart();
+
+        const dateStr = dates[idx];
+        const fullTime = _historyData.timestamps[idx];
+        let tipHtml = "<strong>" + dateStr + "</strong> (" + fullTime + ")<hr style='margin:4px 0;'>";
+        tipHtml += "<table style='font-size:11px; border-collapse:collapse; width:100%;'>";
+        tipHtml += "<tr><th align='left'>Ticker</th><th align='right'>Weight</th><th align='right'>Status</th></tr>";
+
+        const items = [];
+        _historyData.all_tickers.forEach((t, i) => {
+          if (!_selectedTickers.has(t)) return;
+          const series = _historyData.weights_by_ticker[t] || [];
+          const w = series[idx] !== undefined ? series[idx] : 0;
+          items.push({ ticker: t, weight: w, color: getTickerColor(t, i) });
+        });
+
+        items.sort((a, b) => b.weight - a.weight);
+
+        items.forEach(it => {
+          let statusStr = "HOLD";
+          let sColor = "#555";
+          if (it.weight === 0) { statusStr = "REMOVED"; sColor = "red"; }
+          else if (it.weight > 0.052) { statusStr = "OVERWEIGHT"; sColor = "blue"; }
+          else if (it.weight < 0.048) { statusStr = "UNDERWEIGHT"; sColor = "brown"; }
+
+          tipHtml += "<tr>";
+          tipHtml += "<td style='color:" + it.color + "; font-weight:bold; padding-right:8px;'>" + it.ticker + "</td>";
+          tipHtml += "<td align='right' style='padding-right:8px;'>" + (it.weight * 100).toFixed(1) + "%</td>";
+          tipHtml += "<td align='right' style='color:" + sColor + "; font-weight:bold;'>" + statusStr + "</td>";
+          tipHtml += "</tr>";
+        });
+        tipHtml += "</table>";
+
+        tooltip.innerHTML = tipHtml;
+        tooltip.style.display = "block";
+        tooltip.style.left = Math.min(canvas.width - 240, mouseX + 15) + "px";
+        tooltip.style.top = Math.min(canvas.height - 220, mouseY + 15) + "px";
+      } else {
+        _hoveredIndex = -1;
+        tooltip.style.display = "none";
+        drawWeightChart();
+      }
+    };
+
+    canvas.onmouseleave = function() {
+      _hoveredIndex = -1;
+      const tooltip = document.getElementById("chart_tooltip");
+      if (tooltip) tooltip.style.display = "none";
+      drawWeightChart();
+    };
+
+    canvas.onclick = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      for (let item of _legendItems) {
+        if (clickX >= item.x && clickX <= item.x + item.width &&
+            clickY >= item.y && clickY <= item.y + item.height) {
+          toggleTicker(item.ticker);
+          break;
+        }
+      }
+    };
+  }
+
+  function renderTrajectoryTable() {
+    const out = document.getElementById("weight_trajectory_table_out");
+    if (!out || !_historyData) return;
+
+    const dates = _historyData.dates || [];
+    const n = dates.length;
+    let html = "<p>Constituent count: <strong>" + _historyData.all_tickers.length + "</strong> | Observation steps: <strong>" + n + "</strong></p>";
+    html += "<table border='1' cellpadding='4' cellspacing='0'>";
+    html += "<tr>";
+    html += "<th>#</th>";
+    html += "<th>Ticker</th>";
+    html += "<th>Initial (" + dates[0] + ")</th>";
+    for (let i = 1; i < n - 1; i++) {
+      html += "<th>" + dates[i] + "</th>";
+    }
+    html += "<th>Current (" + dates[n - 1] + ")</th>";
+    html += "<th>Net Change</th>";
+    html += "<th>Status</th>";
+    html += "<th>Weight Trajectory Progression</th>";
+    html += "</tr>";
+
+    _historyData.all_tickers.forEach((t, idx) => {
+      const series = _historyData.weights_by_ticker[t] || [];
+      const initW = series[0] !== undefined ? series[0] : 0.05;
+      const currW = series[n - 1] !== undefined ? series[n - 1] : 0.05;
+      const diff = currW - initW;
+      const diffStr = (diff >= 0 ? "+" : "") + (diff * 100).toFixed(1) + "%";
+
+      let status = "HOLD";
+      let statusColor = "black";
+      if (currW === 0) {
+        status = "REMOVED";
+        statusColor = "red";
+      } else if (initW === 0 && currW > 0) {
+        status = "ADDED";
+        statusColor = "green";
+      } else if (diff > 0.005) {
+        status = "OVERWEIGHT";
+        statusColor = "blue";
+      } else if (diff < -0.005) {
+        status = "UNDERWEIGHT";
+        statusColor = "brown";
+      }
+
+      const flow = series.map(w => (w * 100).toFixed(1) + "%").join(" &rarr; ");
+
+      html += "<tr>";
+      html += "<td>" + (idx + 1) + "</td>";
+      html += "<td><strong><span style='color:" + getTickerColor(t, idx) + "'>" + t + "</span></strong></td>";
+      html += "<td>" + (initW * 100).toFixed(1) + "%</td>";
+      for (let i = 1; i < n - 1; i++) {
+        html += "<td>" + ((series[i] || 0) * 100).toFixed(1) + "%</td>";
+      }
+      html += "<td><strong>" + (currW * 100).toFixed(1) + "%</strong></td>";
+      html += "<td><font color='" + (diff >= 0 ? "green" : "red") + "'>" + diffStr + "</font></td>";
+      html += "<td><strong><font color='" + statusColor + "'>" + status + "</font></strong></td>";
+      html += "<td><small>" + flow + "</small></td>";
+      html += "</tr>";
+    });
+
+    html += "</table>";
+    out.innerHTML = html;
+  }
+
+  window.onload = function() {
+    checkHealth();
+    setupCanvasEvents();
+    runIndexRebalance();
+    loadWeightHistory();
+  };
+</script>
+
+</body>
+</html>
