@@ -11,9 +11,7 @@
 
 ---
 
-# Autonomous Financial News Intelligence Engine & Strategic Portfolio Risk Management Platform
-
-## [Project Title] - S&P Global & Crisil Campus Hackathon
+# S&P Global & Crisil Campus Hackathon
 
 **Candidate Name:** Mehul Kaushik
 
@@ -23,7 +21,7 @@
 
 **Demo Video Link:** (YouTube link)
 
-**Slide Deck Link (if hosted externally):** (link)
+**Slide Deck Link :** (link)
 
 ### 1. Project Overview / Problem Statement & Approach
 Financial markets react to breaking news faster than traditional reporting and risk-management workflows can process it. Relevant information is distributed across financial RSS feeds, Reddit discussions, and global event streams, while the effect of an article depends on its entities, sentiment, event type, severity, freshness, and corroboration. A keyword-only or sentiment-only system can therefore produce noisy ticker matches, miss macroeconomic and geopolitical risks, and generate scores that are difficult to connect to actual portfolio decisions.
@@ -57,9 +55,18 @@ flowchart LR
 - **Validation:** `pytest` with the repository's 65 automated engine and API tests.
 
 ### 3. Dataset Used
-The platform is primarily an online data-ingestion system rather than a static benchmark trained on a bundled CSV. At runtime it collects current articles from 10+ financial RSS feeds (including CNBC, WSJ, MarketWatch, Yahoo Finance, Benzinga, Seeking Alpha, and Investing.com), Reddit `r/stocks` and `r/wallstreetbets` feeds, and GDELT 2.0 global news events. Articles are normalized into a common schema, assigned deterministic SHA-1 identifiers for deduplication, enriched with ticker/entity, sentiment, event, and impact fields, and persisted in [`news.duckdb`](news.duckdb).
+The platform is primarily an online data-ingestion system rather than a static benchmark trained on a bundled CSV. At runtime it collects current articles from 10+ financial RSS feeds (including Google Finance via Google News RSS, CNBC, WSJ, MarketWatch, Yahoo Finance, Benzinga, Seeking Alpha, and Investing.com), Reddit `r/stocks` and `r/wallstreetbets` feeds, and GDELT 2.0 global news events. Articles are normalized into a common schema, assigned deterministic SHA-1 identifiers for deduplication, enriched with ticker/entity, sentiment, event, and impact fields, and persisted in [`news.duckdb`](news.duckdb).
 
 The financial-news corpus is complemented by controlled data used for portfolio decisions and risk demonstrations. Module A uses a 20-stock blue-chip universe plus a 10-stock reserve pool, while Module B uses a synthetic $1 billion wholesale portfolio spanning loans, bonds, derivatives, and equities. These synthetic portfolio inputs make the rebalancing and stress-test outputs deterministic and safe to demonstrate; they are not presented as historical customer or market holdings. Transformer weights are downloaded separately by `download_models.py` and are used for inference, not trained by this repository.
+
+The tracked [`data/`](data/) directory keeps this evidence lightweight and
+reproducible: [`source_catalog.csv`](data/source_catalog.csv) documents all
+configured live and reference sources, while
+[`articles_sample.jsonl`](data/articles_sample.jsonl) provides three compact
+synthetic records matching the ingestion contract. The optional
+[Hugging Face financial-news-multisource dataset](https://huggingface.co/datasets/Brianferrell787/financial-news-multisource)
+is listed for provenance/reference only; it is not automatically downloaded or
+required by the application.
 
 ### 4. Quickstart & Installation
 **Runtime:** macOS or Linux with Python 3.10+ (tested through Python 3.14), Git, and virtualenv.
@@ -896,6 +903,10 @@ Server live on: `http://localhost:8000`
 ├── module_a.html                  # Page 2: Stock Index Rebalancer & Canvas Chart
 ├── module_b.html                  # Page 3: Wholesale Portfolio Stress Testing
 ├── news.duckdb                    # Embedded ACID DuckDB persistence store
+├── data/
+│   ├── README.md                  # Data provenance, schema, and snapshot policy
+│   ├── source_catalog.csv         # Live feeds and optional reference dataset
+│   └── articles_sample.jsonl      # Small synthetic demo sample
 ├── newsengine/
 │   ├── __init__.py
 │   ├── __main__.py                # CLI runner

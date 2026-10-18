@@ -1,0 +1,15 @@
+source_id,source_name,source_type,ingestion_mode,endpoint,notes
+google_finance,Google Finance via Google News RSS,financial_news,RSS,https://news.google.com/rss/search?q=stocks+market+when:1d&hl=en-US&gl=US&ceid=US:en,Live market and stock search feed
+cnbc_markets,CNBC Markets,financial_news,RSS,https://www.cnbc.com/id/10000664/device/rss/rss.html,Live financial markets headlines
+cnbc_top,CNBC Top News,financial_news,RSS,https://www.cnbc.com/id/100003114/device/rss/rss.html,Live general business headlines
+wsj_markets,Wall Street Journal Markets,financial_news,RSS,https://feeds.a.dj.com/rss/RSSMarketsMain.xml,Live markets headlines
+marketwatch_top,MarketWatch Top Stories,financial_news,RSS,https://feeds.content.dowjones.io/public/rss/mw_topstories,Live business headlines
+marketwatch_bulletins,MarketWatch Bulletins,financial_news,RSS,https://feeds.content.dowjones.io/public/rss/mw_bulletins,Live market bulletins
+yahoo_sp500,Yahoo Finance S&P 500,financial_news,RSS,https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,Live index headlines
+investing_stocks,Investing.com Stocks,financial_news,RSS,https://www.investing.com/rss/stock.rss,Live stock headlines
+benzinga,Benzinga,financial_news,RSS,https://www.benzinga.com/feed,Live financial news feed
+seeking_alpha,Seeking Alpha Market Currents,financial_news,RSS,https://seekingalpha.com/market_currents.xml,Live market-current headlines
+reddit_stocks,Reddit r/stocks,social_sentiment,RSS,https://www.reddit.com/r/stocks/.rss,Community discussion and sentiment
+reddit_wsb,Reddit r/wallstreetbets,social_sentiment,RSS,https://www.reddit.com/r/wallstreetbets/.rss,Community discussion and sentiment
+gdelt,GDELT Global News,global_events,HTTP API,https://api.gdeltproject.org/api/v2/doc/doc,Best-effort macro and geopolitical event stream
+huggingface_financial_news_multisource,Hugging Face financial-news-multisource,historical_reference,external_dataset,https://huggingface.co/datasets/Brianferrell787/financial-news-multisource,Optional reference dataset; not fetched by the application
