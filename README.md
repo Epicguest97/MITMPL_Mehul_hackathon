@@ -19,9 +19,9 @@
 
 **College / Campus:** Manipal Institute of Technology, MIT Manipal
 
-**Demo Video Link:** (YouTube link)
+**Demo Video Link:** [(YouTube link)](https://www.loom.com/share/60a6e8cdfe204e9f8e1d9dfd93d5e5b1)
 
-**Slide Deck Link :** (link)
+**Slide Deck Link :** [(link)](https://drive.google.com/file/d/1mE2mGsYcn9CeUj9I2YH2US4fJkFS2CSG/view?usp=sharing)
 
 ### 1. Project Overview / Problem Statement & Approach
 Financial markets react to breaking news faster than traditional risk workflows can process it. This project builds an end-to-end financial intelligence platform that ingests news from RSS feeds, Reddit, and global event streams, resolves entities to tickers, and stores deduplicated records in DuckDB.
