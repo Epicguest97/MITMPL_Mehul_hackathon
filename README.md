@@ -15,6 +15,72 @@
 
 ---
 
+## Screenshots & Live Demo
+
+### Page 1 — API Setup & NLP Risk Engine
+
+| Setup & Health Monitor | Feed Ingestion Output |
+|:---:|:---:|
+| ![API setup page showing health check status for all feeds](screenshots/page1/setup_page_with_health check.png) | ![Output after fetching data from 10+ financial RSS and Reddit feeds](screenshots/page1/output_of_fetching_data.png) |
+
+| Active News Sources | Top 10 Recent Articles (DuckDB) |
+|:---:|:---:|
+| ![Table showing all active news sources and their health status](screenshots/page1/showing_the_news_sources.png) | ![Top 10 most recent articles stored in DuckDB with tickers and event types](screenshots/page1/top_ten_recent_articles.png) |
+
+| Per-Ticker Signal Lookup | Rich Signal Output |
+|:---:|:---:|
+| ![Scalar signal score for a specific ticker](screenshots/page1/scalar_ticker_show.png) | ![Rich signal breakdown with recency-weighted sentiment and corroboration score](screenshots/page1/rich_ticker.png) |
+
+| Aggregate Sentiment Summary | FinBERT Sentiment Demo |
+|:---:|:---:|
+| ![Aggregate sentiment summary across all ingested tickers](screenshots/page1/aggreagate_summary.png) | ![FinBERT tone analyzer output showing positive/negative/neutral probabilities](screenshots/page1/demonstarting_finbert.png) |
+
+| DeBERTa-v3 Zero-Shot NLI Demo | Market Impact Score (1–10) |
+|:---:|:---:|
+| ![DeBERTa-v3 zero-shot NLI classification output with event category probabilities](screenshots/page1/demonstaring_deberta.png) | ![Calibrated market impact score demo showing component breakdown](screenshots/page1/impact_score_demo.png) |
+
+| Combined Pipeline Output |
+|:---:|
+| ![Combined end-to-end pipeline output: entity, sentiment, event type, and impact score](screenshots/page1/combined_demo.png) |
+
+---
+
+### Module A — Stock Index Rebalancer & Weight Trajectory Dashboard
+
+| Module A Dashboard | Initial Equal-Weight Portfolio (5% each) |
+|:---:|:---:|
+| ![Module A dashboard overview with 20-stock index and rebalancer controls](screenshots/module_a/module_a_page.png) | ![Initial 5% equal-weight allocation across all 20 blue-chip constituents](screenshots/module_a/initial_weights_of_company.png) |
+
+| Decisions Before Rebalance | Canvas Weight Trajectory (Before) |
+|:---:|:---:|
+| ![Rebalancer decision table before any breaking news is processed](screenshots/module_a/decions_before.png) | ![HTML5 Canvas time-series weight trajectory chart T-6 to T0 before simulation](screenshots/module_a/graph_before.png) |
+
+| Decisions After Breaking News | Updated Constituent Weights |
+|:---:|:---:|
+| ![Rebalancer decisions after high-impact breaking news: REMOVE, OVERWEIGHT, UNDERWEIGHT shown](screenshots/module_a/decions_taken.png) | ![Updated portfolio weights after rebalancing — removed constituent replaced from reserve pool](screenshots/module_a/new_weights.png) |
+
+| Canvas Weight Trajectory (After) |
+|:---:|
+| ![HTML5 Canvas trajectory chart after simulation: removed stock drops to 0%, replacement enters at 5%](screenshots/module_a/graph_after.png) |
+
+---
+
+### Module B — Strategic Wholesale Banking Portfolio Stress Testing
+
+| Module B Dashboard | Synthetic $1B Wholesale Portfolio |
+|:---:|:---:|
+| ![Module B landing page with wholesale portfolio overview and NLP trigger controls](screenshots/module_b/module_b_page.png) | ![Synthetic $1B wholesale banking portfolio composition: Loans, Bonds, Derivatives, Equities](screenshots/module_b/synthetic_data.png) |
+
+| Portfolio Before Stress Test | Portfolio Decisions After Geopolitical Shock |
+|:---:|:---:|
+| ![Wholesale portfolio baseline values before any stress scenario is applied](screenshots/module_b/before_stress_test.png) | ![Rebalancing decisions and capital impact after geopolitical crisis shock is triggered](screenshots/module_b/portfolio_decions_after_geopolitics_stress.png) |
+
+| Asset P&L After Geopolitical Shock | Stress Test Triggered by Live NLP Headline |
+|:---:|:---:|
+| ![Asset-level P&L waterfall after geopolitical stress: treasury bonds gain, HY bonds and equities fall](screenshots/module_b/assets_after_geoplotics_stress.png) | ![Stress test automatically triggered by high-impact Anthropic news headline via NLP pipeline](screenshots/module_b/after_stress_test_of_anthropic_news.png) |
+
+---
+
 ## Executive Summary
 
 Modern institutional asset management and wholesale banking risk divisions face a fundamental latency challenge: **critical real-world financial events move credit and equity markets in milliseconds, while traditional risk models remain anchored to lagging accounting disclosures, backward-looking historical volatility, and quarterly regulatory reporting cycles.**
@@ -73,6 +139,7 @@ This project presents an enterprise-grade, end-to-end quantitative financial int
 ---
 
 ## Table of Contents
+- [Screenshots & Live Demo](#screenshots--live-demo)
 - [1. Problem Statement & First-Principles Problem Approach](#1-problem-statement--first-principles-problem-approach)
 - [2. System Design & Architectural Blueprint](#2-system-design--architectural-blueprint)
 - [3. Deep-Dive: Engineering Challenges & Architectural Trade-offs](#3-deep-dive-engineering-challenges--architectural-trade-offs)
