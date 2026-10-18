@@ -15,6 +15,30 @@
 
 ---
 
+# Autonomous Financial News Intelligence Engine & Strategic Portfolio Risk Management Platform
+
+## [Project Title] - S&P Global & Crisil Campus Hackathon
+
+**Candidate Name:** Mehul Kaushik
+**College Email ID:** kaushikmehul94@gmail.com
+**College / Campus:** Manipal Institute of Technology, MIT Manipal
+**Demo Video Link:** (YouTube link)
+**Slide Deck Link (if hosted externally):** (link)
+
+### 1. Project Overview / Problem Statement & Approach
+*(Add 2‑3 paragraph summary here)*
+
+### 2. Architecture & Tech Stack
+*(Embed architecture diagram, list frameworks)*
+
+### 3. Dataset Used
+*(Describe dataset)*
+
+### 4. Quickstart & Installation
+*(Add runtime, commands)*
+
+---
+
 ## Screenshots & Live Demo
 
 ### Page 1 — API Setup & NLP Risk Engine
