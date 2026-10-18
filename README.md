@@ -21,7 +21,7 @@
 
 | Setup & Health Monitor | Feed Ingestion Output |
 |:---:|:---:|
-| ![API setup page showing health check status for all feeds](screenshots/page1/setup_page_with_health check.png) | ![Output after fetching data from 10+ financial RSS and Reddit feeds](screenshots/page1/output_of_fetching_data.png) |
+| ![API setup page showing health check status for all feeds](screenshots/page1/setup_page_with_health%20check.png) | ![Output after fetching data from 10+ financial RSS and Reddit feeds](screenshots/page1/output_of_fetching_data.png) |
 
 | Active News Sources | Top 10 Recent Articles (DuckDB) |
 |:---:|:---:|
