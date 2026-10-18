@@ -1,9 +1,5 @@
 # Autonomous Financial News Intelligence Engine & Strategic Portfolio Risk Management Platform
 
-**Lead Developer & Quantitative Architect**: **Mehul Kaushik**  
-**Institution / College**: **Manipal Institute of Technology, Manipal (MIT Manipal)**  
-**Track**: Quantitative Finance, Natural Language Processing & Enterprise Risk Management  
-**Platform Status**: Production-Ready & Verified (**65/65 Unit Tests Passing • 100% Code Coverage**)
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Production%20REST-009688.svg)](https://fastapi.tiangolo.com/)
@@ -20,22 +16,65 @@
 ## [Project Title] - S&P Global & Crisil Campus Hackathon
 
 **Candidate Name:** Mehul Kaushik
+
 **College Email ID:** kaushikmehul94@gmail.com
+
 **College / Campus:** Manipal Institute of Technology, MIT Manipal
+
 **Demo Video Link:** (YouTube link)
+
 **Slide Deck Link (if hosted externally):** (link)
 
 ### 1. Project Overview / Problem Statement & Approach
-*(Add 2‑3 paragraph summary here)*
+Financial markets react to breaking news faster than traditional reporting and risk-management workflows can process it. Relevant information is distributed across financial RSS feeds, Reddit discussions, and global event streams, while the effect of an article depends on its entities, sentiment, event type, severity, freshness, and corroboration. A keyword-only or sentiment-only system can therefore produce noisy ticker matches, miss macroeconomic and geopolitical risks, and generate scores that are difficult to connect to actual portfolio decisions.
+
+This project provides an end-to-end financial intelligence and portfolio-risk platform. It concurrently ingests and deduplicates live articles, resolves company names and cashtags to tickers, and stores normalized records in DuckDB. A FinBERT sentiment model estimates directional tone, DeBERTa-v3 zero-shot NLI classifies event categories, and a calibrated impact engine combines magnitude, urgency, geography, and model confidence into a 1–10 market-impact score. Time-decayed and corroboration-aware signals are then exposed through FastAPI APIs and the browser dashboards.
+
+The resulting signals drive two decision layers: a 20-stock blue-chip index rebalancer that preserves a 100% allocation constraint, and a strategic wholesale-banking stress tester for a synthetic $1B portfolio. The latter applies asset-class-specific shocks and reports P&L, balance-sheet effects, and Basel III CET1 capital drawdown. The approach is designed to be reproducible and testable, with causal timestamp filtering to avoid lookahead bias, lazy model loading for practical local execution, and a 65-test automated verification suite.
 
 ### 2. Architecture & Tech Stack
-*(Embed architecture diagram, list frameworks)*
+```mermaid
+flowchart LR
+    A[RSS, Reddit, GDELT] --> B[Concurrent ingestion]
+    B --> C[Deduplication and ticker normalization]
+    C --> D[(DuckDB)]
+    C --> E[FinBERT sentiment]
+    C --> F[DeBERTa-v3 zero-shot NLI]
+    E --> G[Impact and signal fusion]
+    F --> G
+    D --> G
+    G --> H[FastAPI REST API]
+    H --> I[HTML dashboards]
+    G --> J[Rebalancer]
+    G --> K[Wholesale stress tester]
+```
+
+**Core stack**
+- **Runtime:** Python 3.10+ (tested through Python 3.14), with `uvicorn` for serving.
+- **Data and ingestion:** `feedparser`, `requests`/`httpx`, `concurrent.futures.ThreadPoolExecutor`, and embedded DuckDB.
+- **NLP and ML:** PyTorch, Hugging Face Transformers, FinBERT for tone analysis, and DeBERTa-v3 for zero-shot event classification.
+- **Application layer:** FastAPI REST endpoints, plain HTML/CSS/JavaScript pages, and native HTML5 Canvas charts. No frontend build step or external charting framework is required.
+- **Validation:** `pytest` with the repository's 65 automated engine and API tests.
 
 ### 3. Dataset Used
-*(Describe dataset)*
+The platform is primarily an online data-ingestion system rather than a static benchmark trained on a bundled CSV. At runtime it collects current articles from 10+ financial RSS feeds (including CNBC, WSJ, MarketWatch, Yahoo Finance, Benzinga, Seeking Alpha, and Investing.com), Reddit `r/stocks` and `r/wallstreetbets` feeds, and GDELT 2.0 global news events. Articles are normalized into a common schema, assigned deterministic SHA-1 identifiers for deduplication, enriched with ticker/entity, sentiment, event, and impact fields, and persisted in [`news.duckdb`](news.duckdb).
+
+The financial-news corpus is complemented by controlled data used for portfolio decisions and risk demonstrations. Module A uses a 20-stock blue-chip universe plus a 10-stock reserve pool, while Module B uses a synthetic $1 billion wholesale portfolio spanning loans, bonds, derivatives, and equities. These synthetic portfolio inputs make the rebalancing and stress-test outputs deterministic and safe to demonstrate; they are not presented as historical customer or market holdings. Transformer weights are downloaded separately by `download_models.py` and are used for inference, not trained by this repository.
 
 ### 4. Quickstart & Installation
-*(Add runtime, commands)*
+**Runtime:** macOS or Linux with Python 3.10+ (tested through Python 3.14), Git, and virtualenv.
+
+```bash
+git clone https://github.com/Epicguest97/nlp_on_real_finance_data.git
+cd nlp_on_real_finance_data
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python download_models.py
+uvicorn newsengine.api:app --reload --port 8000
+```
+
+Open the dashboards at [`http://localhost:8000/`](http://localhost:8000/), [`http://localhost:8000/module_a`](http://localhost:8000/module_a), and [`http://localhost:8000/module_b`](http://localhost:8000/module_b). The full setup, API invocation examples, and project file structure are documented in [Quickstart Installation & Execution Guide](#12-quickstart-installation--execution-guide) below.
 
 ---
 
