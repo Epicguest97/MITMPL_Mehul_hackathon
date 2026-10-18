@@ -266,14 +266,21 @@ To solve this systematically, the problem was decomposed into five sequential, m
                           └─> Module B: $1B Wholesale Balance Sheet Stress Test (Basel III)
 ```
 
-1. **Phase I: High-Velocity Ingestion & Semantic Normalization**: Aggregate heterogeneous news formats into a standardized `Article` schema with deterministic SHA-1 deduplication and collision-proof entity resolution.
-2. **Phase II: Orthogonal Risk Factor Extraction**: Decouple risk into three independent dimensions:
-   - *Directional Sentiment* ($s \in [-1.0, +1.0]$)
-   - *Event Category Classification* ($C \in \{\text{earnings, M&A, geopolitical, macro, credit, product, other}\}$)
-   - *Market Severity Impact* ($I \in [1.0, 10.0]$)
-3. **Phase III: Causal Signal Blending & Source Corroboration**: Apply exponential half-life time decay ($h = 24\text{h}$) relative to evaluation time $t_{\text{as\_of}}$ and penalize uncorroborated single-source headlines to eliminate lookahead bias.
-4. **Phase IV: Dynamic Equity Index Rebalancing (Module A)**: Translate blended alpha signals into discrete portfolio actions (`REMOVE`, `ADD`, `OVERWEIGHT`, `UNDERWEIGHT`, `HOLD`) with reserve candidate promotion and closed-form weight normalization ($\sum w_i = 100\%$).
-5. **Phase V: Wholesale Banking Capital Stress Testing (Module B)**: Subscribe to high-severity events ($I \ge 7.0$), apply multi-factor macro shocks to a $1B balance sheet, and calculate asset-level P&L and Basel III CET1 solvency drawdowns.
+1. **Phase I: High-Velocity Ingestion & Semantic Normalization:** Aggregate heterogeneous news formats into a standardized `Article` schema with deterministic SHA-1 deduplication and collision-resistant entity resolution.
+
+2. **Phase II: Orthogonal Risk Factor Extraction:** Decouple risk into three independent dimensions:
+   - *Directional Sentiment:* \(s \in [-1.0, +1.0]\)
+   - *Event Category Classification:* \(C \in \{\text{earnings}, \text{M\&A}, \text{geopolitical}, \text{macro}, \text{credit}, \text{product}, \text{other}\}\)
+   - *Market Severity Impact:* \(I \in [1.0, 10.0]\)
+
+3. **Phase III: Causal Signal Blending & Source Corroboration:** Apply exponential half-life time decay (\(h = 24\,\text{h}\)) relative to evaluation time \(t_{\text{as-of}}\), and penalize uncorroborated single-source headlines to reduce noise and prevent look-ahead bias.
+
+4. **Phase IV: Dynamic Equity Index Rebalancing (Module A):** Translate blended alpha signals into discrete portfolio actions (`REMOVE`, `ADD`, `OVERWEIGHT`, `UNDERWEIGHT`, `HOLD`), with reserve candidate promotion and closed-form weight normalization:
+   \[
+   \sum_{i=1}^{N} w_i = 100\%
+   \]
+
+5. **Phase V: Wholesale Banking Capital Stress Testing (Module B):** Subscribe to high-severity events (\(I \geq 7.0\)), apply multi-factor macroeconomic shocks to a synthetic \$1 billion balance sheet, and calculate asset-level P&L and Basel III CET1 capital drawdowns.
 
 ---
 
@@ -403,10 +410,15 @@ During development, critical quantitative and systems-engineering decisions were
 - **The Trade-off**: Requiring explicit cashtags (`$AAPL`) misses >80% of mainstream financial articles that write "Apple" or "Microsoft" in plain text.
 - **The Solution**: Built a **100+ US Blue-Chip Master Dictionary** covering the entire S&P 100 universe, paired with company name and alias mapping (`"Google"` &rarr; `GOOGL`, `"Berkshire Hathaway"` &rarr; `BRK.B`) and a strict `STOPCASH` collision-prevention blacklist.
 
-#### 4. Lookahead Bias in Time-Series Signal Aggregation
-- **The Challenge**: In quantitative finance, aggregating signals across historical windows often inadvertently includes articles published after the evaluation timestamp, creating lookahead bias and rendering backtests meaningless.
-- **The Trade-off**: Pre-calculating static daily aggregates destroys intraday granularity.
-- **The Solution**: Strictly causal evaluation timestamps ($t_{\text{as\_of}}$). Articles are filtered by $t_i \le t_{\text{as\_of}}$ and decayed via an exponential half-life ($h = 24\text{h}$). Verified by unit test `test_no_lookahead_in_aggregate_signals`.
+**4. Lookahead Bias in Time-Series Signal Aggregation**
+
+- **The Challenge:** Aggregating historical signals can inadvertently include articles published after the evaluation timestamp, introducing look-ahead bias and invalidating backtest results.
+- **The Trade-off:** Precomputing static daily aggregates sacrifices intraday granularity.
+- **The Solution:** Enforce strictly causal evaluation using \(t_{\text{as-of}}\). Include only articles satisfying \(t_i \leq t_{\text{as-of}}\), applying exponential time decay with a 24-hour half-life:
+  \[
+  w_i = 2^{-\frac{t_{\text{as-of}}-t_i}{h}}, \qquad h = 24\,\text{h}
+  \]
+  Verify causality with the unit test `test_no_lookahead_in_aggregate_signals`.
 
 #### 5. Transformer Latency vs. Production Throughput
 - **The Challenge**: Re-initializing PyTorch transformer weights on incoming HTTP requests consumes ~4.2 seconds and triggers severe memory thrashing.
@@ -480,14 +492,25 @@ Relying solely on FinBERT would have caused the index rebalancer and stress test
 ### 5.2 DeBERTa-v3 Zero-Shot NLI Event Classification
 To solve FinBERT's blind spot without fine-tuning a massive, sluggish model, we integrated **DeBERTa-v3** (`MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33`), an ultra-efficient 22M parameter transformer operating via **Natural Language Inference (NLI)**.
 
-#### Hypothesis Entailment Formulation
-Instead of rigid keyword classification, DeBERTa formulates event detection as cross-sentence entailment:
-- **Premise ($P$)**: Raw headline text (e.g., *"Federal Reserve announces 50 bps emergency interest rate cut amid rising inflation"*).
-- **Hypothesis ($H_c$)**: `"This text describes a {} event."` evaluated against candidate categories:
-  $$C = \{\text{earnings}, \text{mergers\_acquisitions}, \text{geopolitical}, \text{macroeconomic}, \text{credit\_event}, \text{product\_launch}, \text{other}\}$$
+**Hypothesis Entailment Formulation**
 
-The softmax probability over the entailment logit provides a mathematically rigorous confidence score:
-$$P(\text{Event} = c \mid P) = \frac{\exp\left(\text{Logit}_{\text{entailment}}(P, H_c)\right)}{\sum_{k \in C} \exp\left(\text{Logit}_{\text{entailment}}(P, H_k)\right)}$$
+Instead of rigid keyword-based classification, DeBERTa-v3 uses zero-shot Natural Language Inference (NLI) to classify events by evaluating candidate hypotheses against the headline.
+
+- **Premise (\(P\)):** The raw headline text (e.g., *“Federal Reserve announces 50 bps emergency interest rate cut amid rising inflation”*).
+- **Hypothesis (\(H_c\)):** `"This text describes a {} event."`, evaluated against candidate categories:
+  \[
+  C = \{\text{earnings},\ \text{mergers\_acquisitions},\ \text{geopolitical},\ \text{macroeconomic},\ \text{credit\_event},\ \text{product\_launch},\ \text{other}\}
+  \]
+
+For each category \(c\), DeBERTa produces an entailment logit. Applying softmax across the candidate categories yields normalized classification scores:
+
+\[
+P(c \mid P) =
+\frac{\exp\left(z_c^{\text{entailment}}\right)}
+{\sum_{k \in C}\exp\left(z_k^{\text{entailment}}\right)}
+\]
+
+Here, \(z_c^{\text{entailment}}\) is the entailment logit for hypothesis \(H_c\). The highest-scoring category is selected as the predicted event class.
 
 ### 5.3 Hybrid Ensemble Scoring Architecture
 To guarantee millisecond latency with zero failure modes, [`newsengine/events.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/events.py) implements `EnsembleEventClassifier`:
@@ -530,27 +553,56 @@ Where:
    $$\Delta I_{\text{keywords}} = \min\left(2.0, \, \log_2(1 + N_{\text{matches}})\right)$$
 
 ### 6.2 Time-Decayed Exponential Recency Signal
-Financial signals decay exponentially as markets absorb information. In [`newsengine/signals.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/signals.py) and [`newsengine/rebalancer.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/rebalancer.py), the weight $w_i$ of article $i$ published at $t_i$ relative to evaluation time $t_{\text{as\_of}}$ is governed by a **24-hour half-life** ($h = 24.0$):
 
-$$\Delta t_i = \max\left(0, \, \frac{t_{\text{as\_of}} - t_i}{3600 \text{ sec}}\right)$$
+Financial signals decay exponentially as markets absorb information. In `newsengine/signals.py` and `newsengine/rebalancer.py`, the weight \(w_i\) of article \(i\), published at time \(t_i\), relative to evaluation time \(t_{\text{as-of}}\), uses a **24-hour half-life** (\(h = 24.0\) hours).
 
-$$\text{Recency}_i = 0.5^{\left(\frac{\Delta t_i}{h}\right)}$$
+The elapsed time in hours is:
 
-The total article weight blends recency, impact severity, and classifier certainty:
-$$w_i = \text{Recency}_i \times \left(\frac{I_i}{5.0}\right) \times \max(0.4, \, C_{\text{event}, i})$$
+\[
+\Delta t_i = \max\left(0,\frac{t_{\text{as-of}}-t_i}{3600\text{ seconds}}\right)
+\]
+
+The recency factor is:
+
+\[
+\operatorname{Recency}_i = 0.5^{\frac{\Delta t_i}{h}}
+\]
+
+The total article weight combines recency, impact severity, and event-classification confidence:
+
+\[
+w_i = \operatorname{Recency}_i
+\times \left(\frac{I_i}{5.0}\right)
+\times \max(0.4,C_{\text{event},i})
+\]
 
 ### 6.3 Multi-Window Aggregation & Corroboration Agreement
-For a given ticker across its relevant articles $A_{\text{ticker}}$:
 
-$$\bar{S}_{\text{raw}} = \frac{\sum_{i \in A_{\text{ticker}}} w_i \cdot s_i}{\sum_{i \in A_{\text{ticker}}} w_i}$$
+For a given ticker, let \(A_{\text{ticker}}\) denote its relevant articles. The weighted raw sentiment signal is:
 
-Where $s_i \in [-1.0, 1.0]$ is the FinBERT sentiment score.
+\[
+\bar{S}_{\text{raw}} =
+\frac{\sum_{i\in A_{\text{ticker}}}w_i s_i}
+{\sum_{i\in A_{\text{ticker}}}w_i}
+\]
 
-To protect against single-source rumors or noisy headlines, the signal is scaled by **Source Corroboration Agreement**:
-$$\text{Agreement} = \frac{\max(N_{\text{pos}}, N_{\text{neg}})}{N_{\text{total}}}$$
+where \(s_i\in[-1.0,1.0]\) is the FinBERT sentiment score.
 
-$$\text{Signal}_{\text{final}} = \bar{S}_{\text{raw}} \times \left(0.70 + 0.30 \cdot \text{Agreement}\right)$$
+To reduce sensitivity to single-source rumors and noisy headlines, the signal is scaled by **Source Corroboration Agreement**:
 
+\[
+\operatorname{Agreement} =
+\frac{\max(N_{\text{pos}},N_{\text{neg}})}
+{N_{\text{total}}}
+\]
+
+The final signal is:
+
+\[
+S_{\text{final}} =
+\bar{S}_{\text{raw}}
+\times \left(0.70+0.30\cdot\operatorname{Agreement}\right)
+\]
 ---
 
 ## 7. Module A: Dynamic 20-Stock Blue-Chip Index Rebalancer
@@ -567,29 +619,77 @@ Module A manages a baseline equity portfolio of **20 blue-chip US stocks** with 
 When an existing constituent is removed, top-ranked stocks from the reserve pool (`AMD`, `NFLX`, `WMT`, `BAC`, `CRM`, `ORCL`, `CSCO`, `QCOM`, `CVX`, `GS`) are immediately promoted into the index at baseline weight.
 
 ### 7.2 Mathematical Rebalancing Conditions
-At each observation bar, the rebalance engine evaluates the composite signal $S_t$ and event severity for each constituent:
 
-1. **`REMOVE` (Insolvency / Catastrophic Drop)**:
-   $$S_t < -0.30 \quad \text{OR} \quad \left(s_{\text{article}} \le -0.35 \;\land\; I_{\text{article}} \ge 7.0 \;\land\; \text{Event} \in \{\text{credit\_event}, \text{geopolitical}\}\right)$$
-   *Action*: Removed from index; weight set to $0.0\%$.
+At each observation bar, the rebalancing engine evaluates the composite signal \(S_t\) and event severity for each constituent.
 
-2. **`ADD` (Reserve Promotion)**:
-   For every removed stock, the highest-scoring candidate from the reserve pool is promoted into the index at baseline weight:
-   $$w_{\text{added}} = 5.0\%$$
+**1. `REMOVE` (Insolvency / Catastrophic Drop)**
 
-3. **`OVERWEIGHT` (Strong Bullish Momentum)**:
-   Triggered when signal exceeds positive threshold ($S_t \ge +0.18$):
-   $$w_t = 0.05 + \min\left(0.035, \, 0.05 \cdot S_t\right)$$
-   *(Constituents reach up to ~8.5% weight)*.
+Triggered when:
 
-4. **`UNDERWEIGHT` (Bearish News Drag)**:
-   Triggered when signal is moderately negative ($-0.30 \le S_t \le -0.12$):
-   $$w_t = \max\left(0.015, \, 0.05 - \min(0.035, \, 0.05 \cdot |S_t|)\right)$$
+\[
+S_t < -0.30
+\quad \text{OR} \quad
+\begin{aligned}
+&s_{\text{article}} \leq -0.35\\
+&\land\ I_{\text{article}} \geq 7.0\\
+&\land\ \text{Event}\in
+\{\text{credit\_event},\text{geopolitical}\}
+\end{aligned}
+\]
 
-5. **`HOLD` (Neutral / Insignificant Signal)**:
-   When $-0.12 < S_t < +0.18$:
-   $$w_t = 0.05 \quad (5.0\%)$$
+**Action:** Remove the stock from the index and set its weight to \(0.0\%\).
 
+**2. `ADD` (Reserve Promotion)**
+
+For every removed stock, promote the highest-scoring eligible candidate from the reserve pool into the index at the baseline weight:
+
+\[
+w_{\text{added}} = 5.0\%
+\]
+
+**3. `OVERWEIGHT` (Strong Bullish Momentum)**
+
+Triggered when the composite signal exceeds the positive threshold:
+
+\[
+S_t \geq +0.18
+\]
+
+The target weight is:
+
+\[
+w_t = 0.05 + \min(0.035,\ 0.05S_t)
+\]
+
+Constituents can reach a maximum weight of approximately \(8.5\%\).
+
+**4. `UNDERWEIGHT` (Bearish News Drag)**
+
+Triggered when:
+
+\[
+-0.30 \leq S_t \leq -0.12
+\]
+
+The target weight is:
+
+\[
+w_t = \max\left(0.015,\ 0.05-\min(0.035,\ 0.05|S_t|)\right)
+\]
+
+**5. `HOLD` (Neutral / Insignificant Signal)**
+
+Triggered when:
+
+\[
+-0.12 < S_t < +0.18
+\]
+
+The target weight remains at the baseline:
+
+\[
+w_t = 0.05 \quad (5.0\%)
+\]
 ### 7.3 Strict Weight Normalization Constraint
 To maintain 100% portfolio investment without leverage or cash drag, weights are strictly normalized across active constituents:
 
