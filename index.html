@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Setting Up API &amp; NLP Risk Engine - Financial Intelligence Platform</title>
+</head>
+<body>
+
+<h1>Setting Up API &amp; NLP Risk Engine</h1>
+<p>
+  Core financial data ingestion and NLP intelligence layer: Ingest multi-source feeds &rarr; Clean and deduplicate &rarr;
+  FinBERT sentiment analysis &rarr; DeBERTa-v3 zero-shot NLI event classification &rarr; Market impact estimation (1-10) &rarr; Multi-window alpha signal fusion.
+</p>
+
+<!-- ── Modular Platform Navigation ── -->
+<p style="background:#eef2f7; padding:10px 14px; border:1px solid #b0c4de;">
+  <strong>System Navigation (3 Modular Modules):</strong>
+  &nbsp;&nbsp;
+  <strong>[Page 1: Setting Up API &amp; NLP Risk Engine]</strong>
+  &nbsp;|&nbsp;
+  <a href="module_a.html" style="color:#0055aa; font-weight:bold;">&rarr; Open Page 2: Module A - Stock Index Rebalancer</a>
+  &nbsp;|&nbsp;
+  <a href="module_b.html" style="color:#0055aa; font-weight:bold;">&rarr; Open Page 3: Module B - Portfolio Stress Testing</a>
+</p>
+
+<hr>
+
+<!-- ── Section 1: Server Setup & Configuration ── -->
+<h2>1. Server Setup &amp; Operational Health</h2>
+<p>
+  All intelligence services run as a local high-performance FastAPI server.
+  Start the server with: <code>source venv/bin/activate &amp;&amp; uvicorn newsengine.api:app --reload --port 8000</code>
+</p>
+<p>
+  API Base URL: <input id="api_base" value="http://localhost:8000" size="30">
+  &nbsp;
+  <button onclick="checkHealth()">Check Health</button>
+  <span id="health_status"></span>
+</p>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Health Check API (Code Examples)</strong></summary>
+  <pre>
+# cURL
+curl -X GET "http://localhost:8000/health"
+
+# Python (requests)
+import requests
+res = requests.get("http://localhost:8000/health")
+print(res.json())  # {"status": "ok"}
+
+# JavaScript (fetch)
+fetch("http://localhost:8000/health").then(r => r.json()).then(console.log);
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 2: Data Ingestion & Live Feeds ── -->
+<h2>2. Data Ingestion &amp; Live Financial Feeds</h2>
+<p>
+  Ingests real-time financial news in parallel across <strong>10+ financial RSS feeds</strong> (Google Finance, CNBC, WSJ, MarketWatch, Yahoo Finance, Benzinga, Seeking Alpha), 
+  <strong>Reddit social feeds</strong> (<code>r/stocks</code>, <code>r/wallstreetbets</code>), and <strong>GDELT global news</strong> stream.
+</p>
+
+<p>
+  <button onclick="refreshNews()">Refresh News (Fetch Feeds &rarr; Pipeline &rarr; Store in DuckDB)</button>
+  &nbsp;
+  <button onclick="loadSources()">View Ingestion Sources &amp; Feeds</button>
+</p>
+
+<div id="sources_out"></div>
+<pre id="refresh_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Data Ingestion APIs (Code Examples)</strong></summary>
+  <pre>
+# 1. Trigger Full News Ingestion Pipeline (POST /refresh)
+curl -X POST "http://localhost:8000/refresh"
+
+# Python (requests)
+import requests
+resp = requests.post("http://localhost:8000/refresh")
+print(resp.json())  # {"processed": 35, "event_breakdown": {...}, "tickers_seen": [...]}
+
+# 2. List Active Feed Sources (GET /sources)
+curl -X GET "http://localhost:8000/sources"
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 3: Live Articles Database & Inspection ── -->
+<h2>3. Live Articles Database &amp; Inspection</h2>
+<p>
+  Browse ingested and NLP-enriched articles stored in the local DuckDB persistence layer. 
+  Every article contains FinBERT sentiment scores, DeBERTa event classification labels, extracted tickers, and estimated market impact severity.
+</p>
+
+<p>
+  <button onclick="loadRecent10()">Load Recent Articles (10)</button>
+  &nbsp;&nbsp;
+  Filter by Stock:
+  <input id="stock_input" placeholder="e.g. AAPL" size="8">
+  <button onclick="loadArticlesByStock()">Search Stock</button>
+  &nbsp;&nbsp;
+  Filter by Event:
+  <select id="event_type_input">
+    <option value="">-- all events --</option>
+    <option value="earnings">earnings</option>
+    <option value="mergers_acquisitions">mergers_acquisitions</option>
+    <option value="geopolitical">geopolitical</option>
+    <option value="macroeconomic">macroeconomic</option>
+    <option value="credit_event">credit_event</option>
+    <option value="product_launch">product_launch</option>
+    <option value="other">other</option>
+  </select>
+  &nbsp;
+  Limit: <input id="limit_input" value="10" size="4">
+  <button onclick="loadArticles()">Filter</button>
+</p>
+
+<div id="articles_out"></div>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Articles API (Code Examples)</strong></summary>
+  <pre>
+# Query articles filtered by stock ticker, event category, and limit (GET /articles)
+curl -X GET "http://localhost:8000/articles?ticker=AAPL&amp;event_type=earnings&amp;limit=10"
+
+# Python (requests)
+import requests
+params = {"ticker": "AAPL", "event_type": "earnings", "limit": 10}
+articles = requests.get("http://localhost:8000/articles", params=params).json()
+
+# Query single article by SHA-1 ID (GET /articles/{article_id})
+curl -X GET "http://localhost:8000/articles/&lt;article_id&gt;"
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 4: Standalone FinBERT Sentiment Analysis ── -->
+<h2>4. FinBERT Financial Sentiment Analysis API</h2>
+<p>
+  Dedicated financial sentiment analysis using domain-adapted FinBERT. 
+  Returns a continuous sentiment score normalized in <strong>[-1.0, +1.0]</strong> along with full probability distributions (positive, negative, neutral).
+</p>
+
+<p>
+  <textarea id="sentiment_text" rows="2" cols="90" placeholder="Enter headline or financial text...">NVIDIA reports quarterly revenue surging 122% year-over-year, beating analyst consensus forecasts.</textarea>
+  <br>
+  <button onclick="analyzeSentiment()">Analyze Sentiment (FinBERT)</button>
+</p>
+<pre id="sentiment_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Sentiment API (Code Examples)</strong></summary>
+  <pre>
+# cURL (POST /sentiment)
+curl -X POST "http://localhost:8000/sentiment" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Apple beats earnings with record quarterly iPhone sales"}'
+
+# Python (requests)
+import requests
+payload = {"text": "Apple beats earnings with record quarterly iPhone sales"}
+res = requests.post("http://localhost:8000/sentiment", json=payload).json()
+print(res)
+# Output: {"label": "positive", "score": 0.8421, "probabilities": {"positive": 0.92, "neutral": 0.05, "negative": 0.03}}
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 5: DeBERTa Zero-Shot NLI Event Classification ── -->
+<h2>5. DeBERTa-v3 Zero-Shot NLI Event Classification API</h2>
+<p>
+  Classifies headlines into 7 standardized financial event categories using Natural Language Inference (NLI):
+  <code>earnings</code>, <code>mergers_acquisitions</code>, <code>geopolitical</code>, <code>macroeconomic</code>, 
+  <code>credit_event</code>, <code>product_launch</code>, and <code>other</code>.
+</p>
+
+<p>
+  <textarea id="classify_text" rows="2" cols="90" placeholder="Enter headline text...">Federal Reserve cuts benchmark interest rates by 50 bps amid cooling inflation data.</textarea>
+  <br>
+  <button onclick="classifyEvent()">Classify Event (DeBERTa-v3 Zero-Shot NLI)</button>
+</p>
+<pre id="classify_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Event Classification API (Code Examples)</strong></summary>
+  <pre>
+# cURL (POST /classify)
+curl -X POST "http://localhost:8000/classify" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Federal Reserve cuts benchmark interest rates by 50 bps"}'
+
+# Python (requests)
+import requests
+res = requests.post("http://localhost:8000/classify", json={"text": "Boeing credit rating downgraded to junk"}).json()
+print(res)
+# Output: {"event_type": "credit_event", "confidence": 0.88, "scores": {...}, "model_votes": {...}}
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 6: Market Impact Estimation (Score 1-10) ── -->
+<h2>6. Market Impact Score Estimation API (Score 1-10)</h2>
+<p>
+  Estimates market impact severity on a calibrated <strong>1 to 10 scale</strong>. 
+  Decomposes impact into quantitative sub-scores: financial magnitude ($B figures), urgency, geographic scope, confidence bonuses, and anti-stuffing caps.
+</p>
+
+<p>
+  <textarea id="impact_text" rows="2" cols="90" placeholder="Enter headline text...">Boeing faces emergency FAA grounding and potential credit rating downgrade after catastrophic debt default.</textarea>
+  <br>
+  Event Type Override (optional):
+  <input id="impact_event_override" placeholder="e.g. credit_event" size="16">
+  &nbsp;
+  <button onclick="estimateImpactScore()">Estimate Market Impact (1-10)</button>
+</p>
+<pre id="impact_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Market Impact API (Code Examples)</strong></summary>
+  <pre>
+# cURL (POST /impact)
+curl -X POST "http://localhost:8000/impact" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Tesla files emergency bankruptcy after $10B debt default", "event_type": "credit_event"}'
+
+# Python (requests)
+import requests
+payload = {
+    "text": "Tesla files emergency bankruptcy after $10B debt default",
+    "event_type": "credit_event"
+}
+res = requests.post("http://localhost:8000/impact", json=payload).json()
+print(res["impact_score"])  # e.g. 9.2
+print(res["breakdown"])     # {"financial_magnitude": 3.0, "urgency": 2.5, ...}
+print(res["reasons"])       # ["$10B+ transaction size detected", "Credit default trigger"]
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 7: Combined Full NLP Pipeline (POST /analyze) ── -->
+<h2>7. Combined Full NLP Pipeline API (POST /analyze)</h2>
+<p>
+  Unified single-call endpoint that executes the full end-to-end NLP intelligence pipeline in one request:
+  Ticker Extraction + FinBERT Sentiment + DeBERTa Event Classification + Market Impact Score (1-10).
+</p>
+
+<p>
+  <textarea id="analyze_text" rows="3" cols="90" placeholder="Enter news headline or story...">Microsoft announces $15 billion acquisition of AI infrastructure provider as Azure cloud revenue surges 35%.</textarea>
+  <br>
+  Ticker override (optional): <input id="analyze_ticker" placeholder="e.g. MSFT" size="8">
+  &nbsp;
+  <button onclick="runFullAnalyze()">Run Full NLP Pipeline (Analyze)</button>
+</p>
+<pre id="analyze_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Full NLP Pipeline API (Code Examples)</strong></summary>
+  <pre>
+# cURL (POST /analyze)
+curl -X POST "http://localhost:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Microsoft announces $15B acquisition", "tickers": ["MSFT"]}'
+
+# Python (requests)
+import requests
+res = requests.post("http://localhost:8000/analyze", json={
+    "text": "Apple surges on blowout earnings beating Wall Street consensus",
+    "tickers": ["AAPL"]
+}).json()
+print(res["sentiment"])  # {"label": "positive", "score": 0.82}
+print(res["event"])      # {"type": "earnings", "confidence": 0.91}
+print(res["impact"])     # {"score": 7.8, "breakdown": {...}}
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 8: Alpha Signals & Signal Fusion Engine ── -->
+<h2>8. Alpha Signals &amp; Multi-Window Signal Fusion</h2>
+<p>
+  Combines sentiment score, market impact, recency decay (24h half-life), and source agreement across observation windows (6h, 24h, 72h) into blended ticker trading signals in (-1.0, +1.0).
+</p>
+
+<p>
+  <button onclick="loadSignals()">Get Scalar Signals (per ticker)</button>
+  &nbsp;
+  <button onclick="loadSignalsRich()">Get Rich Multi-Window Decomposition</button>
+</p>
+<pre id="signals_out"></pre>
+
+<details style="background:#f9f9f9; padding:8px; border:1px solid #ddd; margin-top:8px;">
+  <summary><strong>How to Call Signals API (Code Examples)</strong></summary>
+  <pre>
+# 1. Scalar Ticker Signals (GET /signals)
+curl -X GET "http://localhost:8000/signals"
+
+# 2. Rich Multi-Window Signal Decomposition (GET /signals/rich)
+curl -X GET "http://localhost:8000/signals/rich?min_age_h=0"
+
+# Python (requests)
+import requests
+signals = requests.get("http://localhost:8000/signals").json()
+rich = requests.get("http://localhost:8000/signals/rich").json()
+  </pre>
+</details>
+
+<hr>
+
+<!-- ── Section 9: Aggregate Summary ── -->
+<h2>9. Database Aggregate Summary</h2>
+<p>High-level aggregate distribution over all stored articles in DuckDB.</p>
+<button onclick="loadSummary()">Get Aggregate Summary</button>
+<pre id="summary_out"></pre>
+
+<hr>
+
+<!-- ── Next Steps Navigation ── -->
+<h3>Next Modules in Platform Workflow:</h3>
+<p>
+  &bull; <a href="module_a.html" style="font-size:16px; font-weight:bold; color:#0055aa;">Page 2: Module A - Stock Index Rebalancer &amp; Historical Weight Trajectory Dashboard &rarr;</a><br>
+  &bull; <a href="module_b.html" style="font-size:16px; font-weight:bold; color:#0055aa;">Page 3: Module B - Strategic Portfolio Stress Testing for Wholesale Banking &rarr;</a>
+</p>
+
+<script>
+  function base() {
+    return document.getElementById("api_base").value.replace(/\/$/, "");
+  }
+
+  function fmt(obj) {
+    return JSON.stringify(obj, null, 2);
+  }
+
+  function escHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById("health_status");
+    try {
+      const r = await fetch(base() + "/health");
+      const d = await r.json();
+      el.textContent = " -> " + d.status;
+    } catch (e) {
+      el.textContent = " -> ERROR: " + e;
+    }
+  }
+
+  async function refreshNews() {
+    const el = document.getElementById("refresh_out");
+    el.textContent = "Fetching multi-source financial feeds and running full NLP pipeline...";
+    try {
+      const r = await fetch(base() + "/refresh", { method: "POST" });
+      const d = await r.json();
+      el.textContent = fmt(d);
+      loadRecent10();
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  async function loadSources() {
+    const el = document.getElementById("sources_out");
+    el.innerHTML = "<p>Loading active feeds...</p>";
+    try {
+      const r = await fetch(base() + "/sources");
+      const d = await r.json();
+      let html = "<table border='1' cellpadding='4' cellspacing='0'>";
+      html += "<tr><th>#</th><th>Feed Name</th><th>Feed Type</th><th>Endpoint / Feed URL</th><th>Status</th></tr>";
+      d.sources.forEach((s, i) => {
+        html += "<tr>";
+        html += "<td>" + (i + 1) + "</td>";
+        html += "<td><strong>" + escHtml(s.name) + "</strong></td>";
+        html += "<td>" + escHtml(s.type) + "</td>";
+        html += "<td><small><a href='" + escHtml(s.url) + "' target='_blank'>" + escHtml(s.url) + "</a></small></td>";
+        html += "<td><font color='green'><strong>" + escHtml(s.status) + "</strong></font></td>";
+        html += "</tr>";
+      });
+      html += "</table><br>";
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = "<font color='red'>ERROR loading sources: " + escHtml(e) + "</font>";
+    }
+  }
+
+  function loadRecent10() {
+    document.getElementById("limit_input").value = "10";
+    fetchAndDisplayArticles(base() + "/articles?limit=10");
+  }
+
+  function loadArticlesByStock() {
+    const stock = document.getElementById("stock_input").value.trim().toUpperCase();
+    if (!stock) {
+      alert("Please enter a stock ticker (e.g. AAPL)");
+      return;
+    }
+    const limit = document.getElementById("limit_input").value || "10";
+    fetchAndDisplayArticles(base() + "/articles?ticker=" + encodeURIComponent(stock) + "&limit=" + limit);
+  }
+
+  function loadArticles() {
+    const stock = document.getElementById("stock_input").value.trim().toUpperCase();
+    const evtype = document.getElementById("event_type_input").value;
+    const limit = document.getElementById("limit_input").value || "10";
+
+    let url = base() + "/articles?limit=" + limit;
+    if (stock) url += "&ticker=" + encodeURIComponent(stock);
+    if (evtype) url += "&event_type=" + encodeURIComponent(evtype);
+
+    fetchAndDisplayArticles(url);
+  }
+
+  async function fetchAndDisplayArticles(url) {
+    const el = document.getElementById("articles_out");
+    el.innerHTML = "<p>Loading articles from DuckDB...</p>";
+    try {
+      const r = await fetch(url);
+      const articles = await r.json();
+      if (!articles.length) {
+        el.innerHTML = "<p>No articles found. Try clicking 'Refresh News' first or broadening your filter.</p>";
+        return;
+      }
+      renderArticlesTable(articles, el);
+    } catch (e) {
+      el.innerHTML = "<p>ERROR loading articles: " + escHtml(e) + "</p>";
+    }
+  }
+
+  function renderArticlesTable(articles, container) {
+    let html = "<p>Showing <strong>" + articles.length + "</strong> enriched article(s):</p>";
+    html += "<table border='1' cellpadding='4' cellspacing='0'>";
+    html += "<tr>";
+    html += "<th>#</th>";
+    html += "<th>Title</th>";
+    html += "<th>Source</th>";
+    html += "<th>Published</th>";
+    html += "<th>Tickers</th>";
+    html += "<th>Sentiment Label</th>";
+    html += "<th>Sentiment Score</th>";
+    html += "<th>Event Category</th>";
+    html += "<th>Confidence</th>";
+    html += "<th>Impact (1-10)</th>";
+    html += "<th>Raw Data</th>";
+    html += "</tr>";
+
+    articles.forEach(function(a, i) {
+      const sentScore = typeof a.sentiment_score === "number" ? a.sentiment_score.toFixed(3) : "—";
+      const evConf    = typeof a.event_confidence === "number" ? a.event_confidence.toFixed(2) : "—";
+      const impact    = typeof a.impact === "number" ? a.impact.toFixed(1) : "—";
+      const published = a.published ? a.published.substring(0, 19).replace("T"," ") : "—";
+      const tickers   = (a.tickers || []).join(", ") || "—";
+      const sentColor = a.sentiment_score >= 0 ? "green" : "red";
+
+      html += "<tr>";
+      html += "<td>" + (i + 1) + "</td>";
+      html += "<td><a href='" + escHtml(a.url) + "' target='_blank'><strong>" + escHtml(a.title) + "</strong></a></td>";
+      html += "<td>" + escHtml(a.source) + "</td>";
+      html += "<td>" + published + "</td>";
+      html += "<td><strong>" + escHtml(tickers) + "</strong></td>";
+      html += "<td>" + escHtml(a.sentiment_label || "—") + "</td>";
+      html += "<td><font color='" + sentColor + "'>" + sentScore + "</font></td>";
+      html += "<td>" + escHtml(a.event_type || "—") + "</td>";
+      html += "<td>" + evConf + "</td>";
+      html += "<td><strong>" + impact + "/10</strong></td>";
+      html += "<td><button onclick='toggleArticleDetail(" + i + ")'>View</button></td>";
+      html += "</tr>";
+
+      html += "<tr id='art_detail_" + i + "' style='display:none'>";
+      html += "<td colspan='11'><pre>" + escHtml(fmt(a)) + "</pre></td>";
+      html += "</tr>";
+    });
+
+    html += "</table><br>";
+    container.innerHTML = html;
+  }
+
+  function toggleArticleDetail(i) {
+    const row = document.getElementById("art_detail_" + i);
+    if (row) {
+      row.style.display = (row.style.display === "none") ? "" : "none";
+    }
+  }
+
+  // ── FinBERT Sentiment ──
+  async function analyzeSentiment() {
+    const el = document.getElementById("sentiment_out");
+    const text = document.getElementById("sentiment_text").value.trim();
+    if (!text) {
+      el.textContent = "Please enter text to analyze.";
+      return;
+    }
+    el.textContent = "Running FinBERT sentiment model...";
+    try {
+      const r = await fetch(base() + "/sentiment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+      });
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  // ── DeBERTa Event Classification ──
+  async function classifyEvent() {
+    const el = document.getElementById("classify_out");
+    const text = document.getElementById("classify_text").value.trim();
+    if (!text) {
+      el.textContent = "Please enter headline text.";
+      return;
+    }
+    el.textContent = "Running DeBERTa-v3 zero-shot NLI event classification...";
+    try {
+      const r = await fetch(base() + "/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+      });
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  // ── Market Impact ──
+  async function estimateImpactScore() {
+    const el = document.getElementById("impact_out");
+    const text = document.getElementById("impact_text").value.trim();
+    if (!text) {
+      el.textContent = "Please enter text.";
+      return;
+    }
+    const evOverride = document.getElementById("impact_event_override").value.trim();
+    const payload = { text: text };
+    if (evOverride) payload.event_type = evOverride;
+
+    el.textContent = "Estimating market impact score (1-10)...";
+    try {
+      const r = await fetch(base() + "/impact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  // ── Full Analyze ──
+  async function runFullAnalyze() {
+    const el = document.getElementById("analyze_out");
+    const text = document.getElementById("analyze_text").value.trim();
+    if (!text) {
+      el.textContent = "Please enter text.";
+      return;
+    }
+    const ticker = document.getElementById("analyze_ticker").value.trim().toUpperCase();
+    const payload = { text: text };
+    if (ticker) payload.tickers = [ticker];
+
+    el.textContent = "Executing complete NLP stack (Sentiment + Event + Impact + Tickers)...";
+    try {
+      const r = await fetch(base() + "/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  // ── Alpha Signals ──
+  async function loadSignals() {
+    const el = document.getElementById("signals_out");
+    el.textContent = "Loading signals...";
+    try {
+      const r = await fetch(base() + "/signals");
+      const d = await r.json();
+      if (!Object.keys(d).length) {
+        el.textContent = "No signals found. Run 'Refresh News' first.";
+        return;
+      }
+      let text = "Ticker      Composite Signal (-1 to +1)\n" + "-".repeat(38) + "\n";
+      Object.entries(d)
+        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+        .forEach(([t, v]) => {
+          text += t.padEnd(12) + (typeof v === "number" ? v.toFixed(4) : v) + "\n";
+        });
+      el.textContent = text;
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  async function loadSignalsRich() {
+    const el = document.getElementById("signals_out");
+    el.textContent = "Loading multi-window rich signals...";
+    try {
+      const r = await fetch(base() + "/signals/rich");
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  async function loadSummary() {
+    const el = document.getElementById("summary_out");
+    el.textContent = "Loading database summary...";
+    try {
+      const r = await fetch(base() + "/summary");
+      const d = await r.json();
+      el.textContent = fmt(d);
+    } catch (e) {
+      el.textContent = "ERROR: " + e;
+    }
+  }
+
+  window.onload = function() {
+    checkHealth();
+    loadRecent10();
+  };
+</script>
+
+</body>
+</html>
