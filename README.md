@@ -269,18 +269,15 @@ To solve this systematically, the problem was decomposed into five sequential, m
 1. **Phase I: High-Velocity Ingestion & Semantic Normalization:** Aggregate heterogeneous news formats into a standardized `Article` schema with deterministic SHA-1 deduplication and collision-resistant entity resolution.
 
 2. **Phase II: Orthogonal Risk Factor Extraction:** Decouple risk into three independent dimensions:
-   - *Directional Sentiment:* \(s \in [-1.0, +1.0]\)
-   - *Event Category Classification:* \(C \in \{\text{earnings}, \text{M\&A}, \text{geopolitical}, \text{macro}, \text{credit}, \text{product}, \text{other}\}\)
-   - *Market Severity Impact:* \(I \in [1.0, 10.0]\)
+   - **Directional Sentiment:** s ∈ [-1.0, +1.0]
+   - **Event Category Classification:** C = {earnings, M&A, geopolitical, macro, credit, product, other}
+   - **Market Severity Impact:** I ∈ [1.0, 10.0]
 
-3. **Phase III: Causal Signal Blending & Source Corroboration:** Apply exponential half-life time decay (\(h = 24\,\text{h}\)) relative to evaluation time \(t_{\text{as-of}}\), and penalize uncorroborated single-source headlines to reduce noise and prevent look-ahead bias.
+3. **Phase III: Causal Signal Blending & Source Corroboration:** Apply exponential half-life time decay (h = 24 hours) relative to evaluation time `t_as_of`. Penalize uncorroborated single-source headlines to reduce noise and prevent look-ahead bias.
 
-4. **Phase IV: Dynamic Equity Index Rebalancing (Module A):** Translate blended alpha signals into discrete portfolio actions (`REMOVE`, `ADD`, `OVERWEIGHT`, `UNDERWEIGHT`, `HOLD`), with reserve candidate promotion and closed-form weight normalization:
-   \[
-   \sum_{i=1}^{N} w_i = 100\%
-   \]
+4. **Phase IV: Dynamic Equity Index Rebalancing (Module A):** Translate blended alpha signals into discrete portfolio actions (`REMOVE`, `ADD`, `OVERWEIGHT`, `UNDERWEIGHT`, `HOLD`), with reserve candidate promotion and weight normalization. The sum of all constituent weights must equal 100%.
 
-5. **Phase V: Wholesale Banking Capital Stress Testing (Module B):** Subscribe to high-severity events (\(I \geq 7.0\)), apply multi-factor macroeconomic shocks to a synthetic \$1 billion balance sheet, and calculate asset-level P&L and Basel III CET1 capital drawdowns.
+5. **Phase V: Wholesale Banking Capital Stress Testing (Module B):** Subscribe to high-severity events (impact score ≥ 7.0), apply multi-factor macroeconomic shocks to a synthetic $1 billion balance sheet, and calculate asset-level P&L and Basel III CET1 capital drawdowns.
 
 ---
 
@@ -413,12 +410,18 @@ During development, critical quantitative and systems-engineering decisions were
 **4. Lookahead Bias in Time-Series Signal Aggregation**
 
 - **The Challenge:** Aggregating historical signals can inadvertently include articles published after the evaluation timestamp, introducing look-ahead bias and invalidating backtest results.
+
 - **The Trade-off:** Precomputing static daily aggregates sacrifices intraday granularity.
-- **The Solution:** Enforce strictly causal evaluation using \(t_{\text{as-of}}\). Include only articles satisfying \(t_i \leq t_{\text{as-of}}\), applying exponential time decay with a 24-hour half-life:
-  \[
-  w_i = 2^{-\frac{t_{\text{as-of}}-t_i}{h}}, \qquad h = 24\,\text{h}
-  \]
-  Verify causality with the unit test `test_no_lookahead_in_aggregate_signals`.
+
+- **The Solution:** Enforce strictly causal evaluation using the evaluation timestamp `t_as_of`. Include only articles whose publication timestamp `t_i` is less than or equal to `t_as_of`. Apply exponential time decay with a 24-hour half-life.
+
+  **Recency Weight:**
+
+  `recency_weight = 0.5 ^ (elapsed_hours / 24)`
+
+  where `elapsed_hours = (t_as_of - t_i)` measured in hours.
+
+  Verify causality using the unit test `test_no_lookahead_in_aggregate_signals`.
 
 #### 5. Transformer Latency vs. Production Throughput
 - **The Challenge**: Re-initializing PyTorch transformer weights on incoming HTTP requests consumes ~4.2 seconds and triggers severe memory thrashing.
@@ -490,27 +493,25 @@ Initial pipeline iterations relied exclusively on **FinBERT** (`yiyanghkust/finb
 Relying solely on FinBERT would have caused the index rebalancer and stress testing engine to completely miss macro and credit crises.
 
 ### 5.2 DeBERTa-v3 Zero-Shot NLI Event Classification
-To solve FinBERT's blind spot without fine-tuning a massive, sluggish model, we integrated **DeBERTa-v3** (`MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33`), an ultra-efficient 22M parameter transformer operating via **Natural Language Inference (NLI)**.
+
+To address FinBERT's limitations in event classification without fine-tuning a large model, we integrate **DeBERTa-v3** (`MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33`), a 22-million-parameter transformer that performs zero-shot classification using Natural Language Inference (NLI).
 
 **Hypothesis Entailment Formulation**
 
-Instead of rigid keyword-based classification, DeBERTa-v3 uses zero-shot Natural Language Inference (NLI) to classify events by evaluating candidate hypotheses against the headline.
+Rather than relying on rigid keyword matching, DeBERTa-v3 evaluates candidate event categories by measuring how strongly each hypothesis is supported by the headline.
 
-- **Premise (\(P\)):** The raw headline text (e.g., *“Federal Reserve announces 50 bps emergency interest rate cut amid rising inflation”*).
-- **Hypothesis (\(H_c\)):** `"This text describes a {} event."`, evaluated against candidate categories:
-  \[
-  C = \{\text{earnings},\ \text{mergers\_acquisitions},\ \text{geopolitical},\ \text{macroeconomic},\ \text{credit\_event},\ \text{product\_launch},\ \text{other}\}
-  \]
+- **Premise (P):** The raw headline text, for example: *“Federal Reserve announces 50 bps emergency interest rate cut amid rising inflation.”*
+- **Hypothesis (H_c):** `"This text describes a [category] event."`
 
-For each category \(c\), DeBERTa produces an entailment logit. Applying softmax across the candidate categories yields normalized classification scores:
+The candidate categories are: earnings, mergers and acquisitions, geopolitical, macroeconomic, credit event, product launch, and other.
 
-\[
-P(c \mid P) =
-\frac{\exp\left(z_c^{\text{entailment}}\right)}
-{\sum_{k \in C}\exp\left(z_k^{\text{entailment}}\right)}
-\]
+For each category c, DeBERTa produces an entailment logit. Applying softmax across the candidate categories yields normalized classification scores:
 
-Here, \(z_c^{\text{entailment}}\) is the entailment logit for hypothesis \(H_c\). The highest-scoring category is selected as the predicted event class.
+**Classification score:**
+
+`P(c | P) = exp(z_c) / sum(exp(z_k) for k in C)`
+
+Here, `z_c` is the entailment logit for category c, and C is the set of candidate categories. The category with the highest score is selected as the predicted event class.
 
 ### 5.3 Hybrid Ensemble Scoring Architecture
 To guarantee millisecond latency with zero failure modes, [`src/newsengine/events.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/events.py) implements `EnsembleEventClassifier`:
@@ -554,157 +555,133 @@ Where:
 
 ### 6.2 Time-Decayed Exponential Recency Signal
 
-Financial signals decay exponentially as markets absorb information. In `src/newsengine/signals.py` and `src/newsengine/rebalancer.py`, the weight \(w_i\) of article \(i\), published at time \(t_i\), relative to evaluation time \(t_{\text{as-of}}\), uses a **24-hour half-life** (\(h = 24.0\) hours).
+Financial signals decay exponentially as markets absorb information. In `src/newsengine/signals.py` and `src/newsengine/rebalancer.py`, each article's weight depends on its publication time relative to the evaluation timestamp. The model uses a **24-hour half-life** (`h = 24.0` hours).
 
 The elapsed time in hours is:
 
-\[
-\Delta t_i = \max\left(0,\frac{t_{\text{as-of}}-t_i}{3600\text{ seconds}}\right)
-\]
+`delta_t_i = max(0, (t_as_of - t_i) / 3600)`
 
 The recency factor is:
 
-\[
-\operatorname{Recency}_i = 0.5^{\frac{\Delta t_i}{h}}
-\]
+`recency_i = 0.5 ^ (delta_t_i / h)`
 
 The total article weight combines recency, impact severity, and event-classification confidence:
 
-\[
-w_i = \operatorname{Recency}_i
-\times \left(\frac{I_i}{5.0}\right)
-\times \max(0.4,C_{\text{event},i})
-\]
+`w_i = recency_i * (I_i / 5.0) * max(0.4, C_event_i)`
 
 ### 6.3 Multi-Window Aggregation & Corroboration Agreement
 
-For a given ticker, let \(A_{\text{ticker}}\) denote its relevant articles. The weighted raw sentiment signal is:
+For a given ticker, `A_ticker` denotes its relevant articles. The weighted raw sentiment signal is:
 
-\[
-\bar{S}_{\text{raw}} =
-\frac{\sum_{i\in A_{\text{ticker}}}w_i s_i}
-{\sum_{i\in A_{\text{ticker}}}w_i}
-\]
+`S_raw = sum(w_i * s_i) / sum(w_i)`
 
-where \(s_i\in[-1.0,1.0]\) is the FinBERT sentiment score.
+where `s_i` is the FinBERT sentiment score, ranging from -1.0 to +1.0.
 
 To reduce sensitivity to single-source rumors and noisy headlines, the signal is scaled by **Source Corroboration Agreement**:
 
-\[
-\operatorname{Agreement} =
-\frac{\max(N_{\text{pos}},N_{\text{neg}})}
-{N_{\text{total}}}
-\]
+`agreement = max(N_pos, N_neg) / N_total`
+
+where `N_pos` and `N_neg` are the counts of positive and negative articles, and `N_total` is the total number of relevant articles.
 
 The final signal is:
 
-\[
-S_{\text{final}} =
-\bar{S}_{\text{raw}}
-\times \left(0.70+0.30\cdot\operatorname{Agreement}\right)
-\]
----
+`S_final = S_raw * (0.70 + 0.30 * agreement)`
+
 
 ## 7. Module A: Dynamic 20-Stock Blue-Chip Index Rebalancer
 
 ### 7.1 Index Universe & Reserve Pool Allocation
-Module A manages a baseline equity portfolio of **20 blue-chip US stocks** with an **equal baseline weight of 5.0% each** (totaling 100.0%). Constituents span all 11 GICS sectors:
 
-```
-[AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, BRK.B, JPM, V, 
- UNH,  JNJ,  XOM,  PG,   HD,    MA,   LLY,  COST, ABBV, AVGO]
+Module A manages a portfolio of **20 blue-chip US stocks**, each with a baseline weight of 5.0%, totaling 100.0%. The constituents span multiple GICS sectors.
+
+**Initial Constituents:**
+
+```text
+AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, BRK.B, JPM, V,
+UNH, JNJ, XOM, PG, HD, MA, LLY, COST, ABBV, AVGO
 ```
 
-**Reserve Candidate Pool**:
-When an existing constituent is removed, top-ranked stocks from the reserve pool (`AMD`, `NFLX`, `WMT`, `BAC`, `CRM`, `ORCL`, `CSCO`, `QCOM`, `CVX`, `GS`) are immediately promoted into the index at baseline weight.
+**Reserve Candidate Pool:**
+
+When a constituent is removed, the highest-ranked eligible reserve candidate is promoted at the baseline weight.
+
+```text
+AMD, NFLX, WMT, BAC, CRM, ORCL, CSCO, QCOM, CVX, GS
+```
 
 ### 7.2 Mathematical Rebalancing Conditions
 
-At each observation bar, the rebalancing engine evaluates the composite signal \(S_t\) and event severity for each constituent.
+At each observation bar, the engine evaluates the composite signal \(S_t\) and event severity for each constituent.
 
-**1. `REMOVE` (Insolvency / Catastrophic Drop)**
+**1. `REMOVE` — Catastrophic Risk**
 
-Triggered when:
+Triggered when either condition is met:
 
-\[
-S_t < -0.30
-\quad \text{OR} \quad
-\begin{aligned}
-&s_{\text{article}} \leq -0.35\\
-&\land\ I_{\text{article}} \geq 7.0\\
-&\land\ \text{Event}\in
-\{\text{credit\_event},\text{geopolitical}\}
-\end{aligned}
-\]
+- The composite signal falls below -0.30.
+- The article sentiment is at most -0.35, the impact score is at least 7.0, and the event is a credit event or geopolitical event.
 
-**Action:** Remove the stock from the index and set its weight to \(0.0\%\).
+**Action:** Remove the stock from the index and set its weight to 0.0%.
 
-**2. `ADD` (Reserve Promotion)**
+**2. `ADD` — Reserve Promotion**
 
-For every removed stock, promote the highest-scoring eligible candidate from the reserve pool into the index at the baseline weight:
+Promote the highest-scoring eligible reserve candidate for each removed stock.
 
-\[
-w_{\text{added}} = 5.0\%
-\]
+Baseline target weight:
 
-**3. `OVERWEIGHT` (Strong Bullish Momentum)**
+`w_added = 5.0%`
 
-Triggered when the composite signal exceeds the positive threshold:
-
-\[
-S_t \geq +0.18
-\]
-
-The target weight is:
-
-\[
-w_t = 0.05 + \min(0.035,\ 0.05S_t)
-\]
-
-Constituents can reach a maximum weight of approximately \(8.5\%\).
-
-**4. `UNDERWEIGHT` (Bearish News Drag)**
+**3. `OVERWEIGHT` — Strong Bullish Momentum**
 
 Triggered when:
 
-\[
--0.30 \leq S_t \leq -0.12
-\]
+`S_t >= +0.18`
 
-The target weight is:
+Target weight:
 
-\[
-w_t = \max\left(0.015,\ 0.05-\min(0.035,\ 0.05|S_t|)\right)
-\]
+`w_t = 0.05 + min(0.035, 0.05 * S_t)`
 
-**5. `HOLD` (Neutral / Insignificant Signal)**
+Maximum target weight: 8.5%.
+
+**4. `UNDERWEIGHT` — Bearish News Drag**
 
 Triggered when:
 
-\[
--0.12 < S_t < +0.18
-\]
+`-0.30 <= S_t <= -0.12`
 
-The target weight remains at the baseline:
+Target weight:
 
-\[
-w_t = 0.05 \quad (5.0\%)
-\]
+`w_t = max(0.015, 0.05 - min(0.035, 0.05 * abs(S_t)))`
+
+Minimum target weight: 1.5%.
+
+**5. `HOLD` — Neutral Signal**
+
+Triggered when:
+
+`-0.12 < S_t < +0.18`
+
+Target weight:
+
+`w_t = 0.05`
+
 ### 7.3 Strict Weight Normalization Constraint
-To maintain 100% portfolio investment without leverage or cash drag, weights are strictly normalized across active constituents:
 
-$$w_{i, \text{normalized}} = \frac{w_i}{\sum_{j \in \text{Active}} w_j}$$
+To maintain full investment without leverage or cash drag, normalize target weights across all active constituents:
 
-$$\sum_{i=1}^{20} w_{i, \text{normalized}} \equiv 1.0000 \quad (100.0\%)$$
+`normalized_weight_i = target_weight_i / sum(target_weight_j for all active constituents j)`
 
-### 7.4 Native HTML5 Canvas Time-Series Trajectory Dashboard
-Built directly in plain HTML5 `<canvas id="weightHistoryCanvas">` in [`module_a.html`](file:///Users/mehul/Downloads/ph4/ph4/module_a.html) with zero external CSS or JS frameworks:
-- **Time-Series Trajectory Line Chart ($T_{-6} \to T_0$)**: Plots continuous constituent weights over historical observation steps.
-- **5.0% Baseline Reference Line**: Dashed dark reference line allows instant visual detection of overweight vs. underweight stocks.
-- **Interactive Tooltip on Hover**: Computes closest date index on mousemove, rendering a vertical crosshair cursor and displaying sorted constituent weights and action badges (`HOLD`, `OVERWEIGHT`, `UNDERWEIGHT`, `REMOVED`, `ADDED`).
-- **Dynamic Simulation Update**: Clicking *"Simulate TSLA Default"* or entering custom breaking news immediately triggers the rebalancer, updates the trajectory chart, and plots TSLA dropping to 0% with its replacement entering at 5%.
+The final weights must satisfy:
 
----
+`sum(normalized_weight_i) = 1.0000 (100.0%)`
+
+### 7.4 Native HTML5 Canvas Time-Series Dashboard
+
+The dashboard is implemented using native HTML5 Canvas in `module_a.html`, without external CSS or JavaScript frameworks.
+
+- **Time-Series Trajectory (T-6 to T0):** Plots constituent weights across historical observation steps.
+- **5.0% Baseline Reference:** A dashed line highlights overweight and underweight positions.
+- **Interactive Tooltips:** Hovering displays a vertical crosshair, sorted constituent weights, and action badges (`HOLD`, `OVERWEIGHT`, `UNDERWEIGHT`, `REMOVED`, `ADDED`).
+- **Dynamic Simulation:** Selecting *Simulate TSLA Default* or entering custom breaking news triggers rebalancing and updates the chart, showing TSLA at 0% and its replacement entering at a 5% target weight.
 
 ## 8. Module B: Strategic Wholesale Banking Portfolio Stress Testing
 
@@ -766,17 +743,32 @@ $$\lambda = \max\left(0.4, \, \min\left(1.4, \, \frac{I - 4.0}{4.0}\right)\right
   $$\Delta V_{\text{CDS}} = -D_{\text{CDS}} \cdot \text{Notional} \cdot \Delta \text{Spread}_{\text{IG}}$$
 
 ### 8.4 Basel III Regulatory Capital & CET1 Solvency Engine
-Wholesale banks are legally required to maintain regulatory capital buffers under Basel III rules. Module B tracks solvency impacts in real time:
-- **Baseline Common Equity Tier 1 (CET1) Capital**: $135.0\text{ Million}$ against $1,000.0\text{M}$ risk-weighted assets ($\text{CET1 Ratio} = 13.50\%$).
-- **Stressed CET1 Capital**:
-  $$\text{Capital}_{\text{stressed}} = \max\left(0, \, 135.0\text{M} + \Delta V_{\text{portfolio}}\right)$$
-  $$\text{CET1 Ratio}_{\text{stressed}} = \left(\frac{\text{Capital}_{\text{stressed}}}{\text{Assets}_{\text{base}}}\right) \times 100\%$$
-- **Capital Drawdown (bps)**:
-  $$\text{Drawdown}_{\text{bps}} = (\text{CET1}_{\text{stressed}} - \text{CET1}_{\text{baseline}}) \times 100$$
-- **Solvency Check**: Verifies whether post-stress capital satisfies the Basel III Pillar 1 statutory minimum of **8.00%** and calculates the remaining capital surplus.
-- **Stressed Value at Risk (VaR 99.9% 10-Day)**:
-  $$\text{VaR}_{99.9} = |\Delta V_{\text{portfolio}}| \times 1.15$$
 
+Module B tracks the impact of portfolio stress scenarios on regulatory capital and solvency.
+
+- **Baseline Common Equity Tier 1 (CET1) Capital:** \$135.0 million against \$1,000.0 million in risk-weighted assets (RWA), giving a baseline CET1 ratio of 13.50%.
+
+- **Stressed CET1 Capital:**
+
+  `CET1_stressed = max(0, 135.0M + delta_V_portfolio)`
+
+  where `delta_V_portfolio` represents the modeled change in portfolio value.
+
+- **Stressed CET1 Ratio:**
+
+  `CET1_ratio_stressed = (CET1_stressed / RWA_stressed) * 100%`
+
+- **Capital Drawdown (basis points):**
+
+  `Drawdown_bps = (CET1_ratio_stressed - CET1_ratio_baseline) * 100`
+
+- **Solvency Check:** Compare the stressed CET1 ratio against the applicable regulatory minimum and calculate the remaining capital surplus or shortfall.
+
+- **Illustrative Stressed Value at Risk (99.9%, 10-day horizon):**
+
+  `VaR_99.9 = abs(delta_V_portfolio) * 1.15`
+
+  The multiplier of 1.15 is a simplifying assumption for the prototype, not a statistically calibrated VaR estimate.
 ---
 
 ## 9. Three-Tier Modular Platform Architecture
