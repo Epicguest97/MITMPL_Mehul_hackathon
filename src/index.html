@@ -28,7 +28,7 @@
 <h2>1. Server Setup &amp; Operational Health</h2>
 <p>
   All intelligence services run as a local high-performance FastAPI server.
-  Start the server with: <code>source venv/bin/activate &amp;&amp; uvicorn newsengine.api:app --reload --port 8000</code>
+  Start the server with: <code>source venv/bin/activate &amp;&amp; PYTHONPATH=src uvicorn newsengine.api:app --reload --port 8000</code>
 </p>
 <p>
   API Base URL: <input id="api_base" value="http://localhost:8000" size="30">

@@ -62,7 +62,7 @@ import torch.nn.functional as F
 log = logging.getLogger(__name__)
 
 # ── Cache directory (mirrors sentiment.py) ────────────────────────────────────
-_HERE       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HERE       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _MODELS_DIR = os.path.join(_HERE, "models")
 os.makedirs(_MODELS_DIR, exist_ok=True)
 os.environ.setdefault("HF_HOME",            _MODELS_DIR)

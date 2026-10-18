@@ -19,7 +19,7 @@ fresh records at runtime and stores its working database in the ignored
 The live pipeline uses Google Finance via Google News RSS, CNBC, WSJ,
 MarketWatch, Yahoo Finance, Investing.com, Benzinga, Seeking Alpha, Reddit
 (`r/stocks` and `r/wallstreetbets`), and GDELT. See
-[`newsengine/fetch.py`](../newsengine/fetch.py) for the executable source
+[`src/newsengine/fetch.py`](../src/newsengine/fetch.py) for the executable source
 configuration.
 
 The Hugging Face

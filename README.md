@@ -70,8 +70,8 @@ cd nlp_on_real_finance_data
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python download_models.py
-uvicorn newsengine.api:app --reload --port 8000
+python src/download_models.py
+PYTHONPATH=src uvicorn newsengine.api:app --reload --port 8000
 ```
 
 Open the dashboards at [`http://localhost:8000/`](http://localhost:8000/), [`http://localhost:8000/module_a`](http://localhost:8000/module_a), and [`http://localhost:8000/module_b`](http://localhost:8000/module_b). The full setup, API invocation examples, and project file structure are documented in [Quickstart Installation & Execution Guide](#12-quickstart-installation--execution-guide) below.
@@ -450,7 +450,7 @@ During development, critical quantitative and systems-engineering decisions were
 ## 4. Data Ingestion & Enrichment Pipeline
 
 ### 4.1 Multi-Source Parallel Ingestion Pipeline
-Financial markets react to news from diverse distribution channels. In [`newsengine/fetch.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/fetch.py), a concurrent multi-source ingestor runs in parallel using `concurrent.futures.ThreadPoolExecutor(max_workers=8)`:
+Financial markets react to news from diverse distribution channels. In [`src/newsengine/fetch.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/fetch.py), a concurrent multi-source ingestor runs in parallel using `concurrent.futures.ThreadPoolExecutor(max_workers=8)`:
 
 - **10+ Tier-1 Financial RSS Wires**: Google Finance Markets, CNBC Top News & Markets, Wall Street Journal Markets, MarketWatch Top Stories & Bulletins, Yahoo Finance S&P 500, Benzinga Live Feed, Seeking Alpha Market Currents, Investing.com.
 - **Social Retail Sentiment**: Reddit `r/stocks` and `r/wallstreetbets` feeds, stripping Reddit-specific user tags (`/u/username`) and markdown link artifacts.
@@ -473,7 +473,7 @@ A critical problem in raw news ingestion is **ticker ambiguity**:
 - An article mentions "Apple" or "Microsoft" without explicit cashtags.
 - Basic regex patterns match ordinary English words as tickers (e.g., matching the company "Agilent" `$A`, "Ford" `$F`, or words like "ON", "IT", "FOR", "BE").
 
-**The Solution Implemented in [`newsengine/normalize.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/normalize.py)**:
+**The Solution Implemented in [`src/newsengine/normalize.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/normalize.py)**:
 1. **100+ US Blue-Chip Master Dictionary**: Covers the entire S&P 100 universe across all 11 GICS sectors (Tech, Healthcare, Financials, Energy, Consumer, Industrials, etc.).
 2. **Entity Name & Alias Resolution**: Maps phrases like `"Google"` &rarr; `GOOGL`, `"Berkshire Hathaway"` &rarr; `BRK.B`, `"JPMorgan"` &rarr; `JPM`, `"Palantir"` &rarr; `PLTR`, `"CrowdStrike"` &rarr; `CRWD`.
 3. **Cashtag Extraction**: Identifies explicit financial cashtags (`$NVDA`, `$TSLA`, `$AAPL`).
@@ -513,22 +513,22 @@ P(c \mid P) =
 Here, \(z_c^{\text{entailment}}\) is the entailment logit for hypothesis \(H_c\). The highest-scoring category is selected as the predicted event class.
 
 ### 5.3 Hybrid Ensemble Scoring Architecture
-To guarantee millisecond latency with zero failure modes, [`newsengine/events.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/events.py) implements `EnsembleEventClassifier`:
+To guarantee millisecond latency with zero failure modes, [`src/newsengine/events.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/events.py) implements `EnsembleEventClassifier`:
 1. **NLI Zero-Shot Model (Weight: 0.65)**: Provides deep contextual zero-shot generalization.
 2. **MiniLM Sentence Embedding Similarity (Weight: 0.20)**: Computes cosine similarity against category prototype anchors.
 3. **Deterministic Keyword Sub-Score (Weight: 0.15)**: Provides deterministic anchoring for unambiguous financial terminology (e.g. `EBITDA`, `Chapter 11`, `downgrade`, `merger`).
 
 ### 5.4 Lazy Singletons & Local Disk Caching
 Transformer models can take hundreds of megabytes of memory and several seconds to load into PyTorch. Re-initializing models per HTTP request creates memory thrashing and latency spikes:
-- Models are downloaded once to local disk storage (`models/`) via [`download_models.py`](file:///Users/mehul/Downloads/ph4/ph4/download_models.py).
-- In [`newsengine/api.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/api.py), models are loaded as thread-safe **lazy singletons** (`_get_sentiment_model()`, `_get_event_classifier()`) on the first API request and kept warm in VRAM/RAM for sub-18ms subsequent inferences.
+- Models are downloaded once to local disk storage (`models/`) via [`src/download_models.py`](file:///Users/mehul/Downloads/ph4/ph4/src/download_models.py).
+- In [`src/newsengine/api.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/api.py), models are loaded as thread-safe **lazy singletons** (`_get_sentiment_model()`, `_get_event_classifier()`) on the first API request and kept warm in VRAM/RAM for sub-18ms subsequent inferences.
 
 ---
 
 ## 6. Quantitative Signal Fusion & Mathematical Formulations
 
 ### 6.1 Calibrated Market Impact Score (1 to 10 Scale)
-Every article receives an objective, multi-factor market impact severity score $I \in [1.0, 10.0]$ implemented in [`newsengine/impact.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/impact.py):
+Every article receives an objective, multi-factor market impact severity score $I \in [1.0, 10.0]$ implemented in [`src/newsengine/impact.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/impact.py):
 
 $$I = \min\left(10.0, \, I_{\text{base}} + I_{\text{magnitude}} + I_{\text{urgency}} + I_{\text{geo}} + I_{\text{conf}}\right)$$
 
@@ -554,7 +554,7 @@ Where:
 
 ### 6.2 Time-Decayed Exponential Recency Signal
 
-Financial signals decay exponentially as markets absorb information. In `newsengine/signals.py` and `newsengine/rebalancer.py`, the weight \(w_i\) of article \(i\), published at time \(t_i\), relative to evaluation time \(t_{\text{as-of}}\), uses a **24-hour half-life** (\(h = 24.0\) hours).
+Financial signals decay exponentially as markets absorb information. In `src/newsengine/signals.py` and `src/newsengine/rebalancer.py`, the weight \(w_i\) of article \(i\), published at time \(t_i\), relative to evaluation time \(t_{\text{as-of}}\), uses a **24-hour half-life** (\(h = 24.0\) hours).
 
 The elapsed time in hours is:
 
@@ -709,7 +709,7 @@ Built directly in plain HTML5 `<canvas id="weightHistoryCanvas">` in [`module_a.
 ## 8. Module B: Strategic Wholesale Banking Portfolio Stress Testing
 
 ### 8.1 Wholesale Portfolio Composition ($1 Billion Notional)
-Module B implements [`newsengine/stress_test.py`](file:///Users/mehul/Downloads/ph4/ph4/newsengine/stress_test.py), modeling a synthetic wholesale corporate bank balance sheet with **$1,000,000,000 ($1 Billion)** in total commitments across 14 institutional facilities:
+Module B implements [`src/newsengine/stress_test.py`](file:///Users/mehul/Downloads/ph4/ph4/src/newsengine/stress_test.py), modeling a synthetic wholesale corporate bank balance sheet with **$1,000,000,000 ($1 Billion)** in total commitments across 14 institutional facilities:
 
 1. **Commercial & Wholesale Corporate Loans ($410M notional / $403.9M base)**:
    - Syndicated Term Loan B (Apex Industrials, $120M, SOFR+275 bps)
@@ -866,7 +866,7 @@ The repository features comprehensive end-to-end regression test coverage in [`t
 
 ```bash
 source venv/bin/activate
-PYTHONPATH=. pytest tests/ -v
+PYTHONPATH=src pytest tests/ -v
 ```
 
 ```
@@ -966,13 +966,13 @@ pip install -r requirements.txt
 
 ### 3. Download Transformer Models (One-Time Setup)
 ```bash
-python download_models.py
+python src/download_models.py
 ```
 
 ### 4. Launch the Production API Server
 ```bash
 source venv/bin/activate
-uvicorn newsengine.api:app --reload --port 8000
+PYTHONPATH=src uvicorn newsengine.api:app --reload --port 8000
 ```
 Server live on: `http://localhost:8000`
 
@@ -990,33 +990,36 @@ Server live on: `http://localhost:8000`
 ```
 ├── README.md                      # Comprehensive system documentation & research paper
 ├── requirements.txt               # Pinned project dependencies
-├── download_models.py             # Offline HuggingFace transformer downloader
-├── index.html                     # Root entry portal (mirrors Page 1)
-├── api_setup.html                 # Page 1: Ingestion, NLP APIs, and docs
-├── module_a.html                  # Page 2: Stock Index Rebalancer & Canvas Chart
-├── module_b.html                  # Page 3: Wholesale Portfolio Stress Testing
+├── src/
+│   ├── download_models.py         # Offline HuggingFace transformer downloader
+│   ├── index.html                 # Root entry portal (mirrors Page 1)
+│   ├── api_setup.html             # Page 1: Ingestion, NLP APIs, and docs
+│   ├── module_a.html              # Page 2: Stock Index Rebalancer & Canvas Chart
+│   ├── module_b.html              # Page 3: Wholesale Portfolio Stress Testing
+│   └── newsengine/                # Application and model source code
+│       ├── __init__.py
+│       ├── __main__.py            # CLI runner
+│       ├── api.py                 # FastAPI REST server & page routers
+│       ├── backtest.py            # No-lookahead backtest simulator
+│       ├── events.py              # DeBERTa-v3 zero-shot NLI & ensemble classifier
+│       ├── fetch.py               # Parallel RSS, Reddit & GDELT ingestor
+│       ├── impact.py              # Calibrated market impact scoring (1-10)
+│       ├── models.py              # Dataclass schemas (Article, RebalanceDecision)
+│       ├── normalize.py           # 100+ ticker dictionary & HTML cleaner
+│       ├── pipeline.py            # End-to-end pipeline orchestrator
+│       ├── portfolio.py            # Target portfolio weight optimizer
+│       ├── rebalancer.py           # 20-Stock Index rebalancing & history engine
+│       ├── sentiment.py            # FinBERT tone analyzer & probability scorer
+│       ├── signals.py              # Multi-window alpha signal blender
+│       ├── store.py                # DuckDB relational wrapper
+│       └── stress_test.py          # Wholesale banking portfolio stress engine
 ├── news.duckdb                    # Embedded ACID DuckDB persistence store
 ├── data/
 │   ├── README.md                  # Data provenance, schema, and snapshot policy
 │   ├── source_catalog.csv         # Live feeds and optional reference dataset
 │   └── articles_sample.jsonl      # Small synthetic demo sample
-├── newsengine/
-│   ├── __init__.py
-│   ├── __main__.py                # CLI runner
-│   ├── api.py                     # FastAPI REST server & page routers
-│   ├── backtest.py                # No-lookahead backtest simulator
-│   ├── events.py                  # DeBERTa-v3 zero-shot NLI & ensemble classifier
-│   ├── fetch.py                   # Parallel RSS, Reddit & GDELT ingestor
-│   ├── impact.py                  # Calibrated market impact scoring (1-10)
-│   ├── models.py                  # Dataclass schemas (Article, RebalanceDecision)
-│   ├── normalize.py               # 100+ ticker dictionary & HTML cleaner
-│   ├── pipeline.py                # End-to-end pipeline orchestrator
-│   ├── portfolio.py               # Target portfolio weight optimizer
-│   ├── rebalancer.py              # 20-Stock Index rebalancing & history engine
-│   ├── sentiment.py               # FinBERT tone analyzer & probability scorer
-│   ├── signals.py                 # Multi-window alpha signal blender
-│   ├── store.py                   # DuckDB relational wrapper
-│   └── stress_test.py             # Wholesale banking portfolio stress engine
+├── docs/                          # Presentation and architecture deliverables
+│   └── .gitkeep
 └── tests/
     └── test_engine.py             # 65 automated unit tests (100% pass rate)
 ```

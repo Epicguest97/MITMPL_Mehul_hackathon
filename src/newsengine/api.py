@@ -1,7 +1,7 @@
 """Step 7 (exposure): FastAPI service.
 
 Run:
-    uvicorn newsengine.api:app --reload
+    PYTHONPATH=src uvicorn newsengine.api:app --reload
 
 Endpoints
 ---------
@@ -18,6 +18,7 @@ GET  /summary             aggregate stats over all stored articles
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -69,6 +70,7 @@ app.add_middleware(
 )
 
 _store: Store | None = None
+_SRC_DIR = Path(__file__).resolve().parent.parent
 
 
 def store() -> Store:
@@ -602,34 +604,24 @@ def get_stress_test_events(
 @app.get("/index.html", tags=["ui"], response_class=FileResponse)
 def serve_api_setup():
     """Serve Page 1: API Setup & NLP Risk Engine."""
-    import os
-    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "api_setup.html")
-    if os.path.exists(path):
+    path = _SRC_DIR / "api_setup.html"
+    if path.exists():
         return FileResponse(path)
-    idx_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "index.html")
-    return FileResponse(idx_path)
+    return FileResponse(_SRC_DIR / "index.html")
 
 
 @app.get("/module_a", tags=["ui"], response_class=FileResponse)
 @app.get("/module_a.html", tags=["ui"], response_class=FileResponse)
 def serve_module_a():
     """Serve Page 2: Module A - Stock Index Rebalancer & Historical Weight Trajectory Dashboard."""
-    import os
-    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "module_a.html")
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("module_a.html")
+    return FileResponse(_SRC_DIR / "module_a.html")
 
 
 @app.get("/module_b", tags=["ui"], response_class=FileResponse)
 @app.get("/module_b.html", tags=["ui"], response_class=FileResponse)
 def serve_module_b():
     """Serve Page 3: Module B - Strategic Portfolio Stress Testing."""
-    import os
-    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "module_b.html")
-    if os.path.exists(path):
-        return FileResponse(path)
-    return FileResponse("module_b.html")
+    return FileResponse(_SRC_DIR / "module_b.html")
 
 
 

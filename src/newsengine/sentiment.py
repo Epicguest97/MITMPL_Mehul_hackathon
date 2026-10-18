@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 # Pin HuggingFace downloads to <project>/models/ so the model is downloaded
 # exactly ONCE and always found in the same place regardless of the working
 # directory or the system-wide ~/.cache.
-_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root
+_HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # project root
 _MODELS_DIR = os.path.join(_HERE, "models")
 os.makedirs(_MODELS_DIR, exist_ok=True)
 # Set BEFORE importing transformers/huggingface_hub so they pick it up.

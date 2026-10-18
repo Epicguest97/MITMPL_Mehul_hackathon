@@ -7,12 +7,12 @@ the server never needs a network connection to load sentiment or event models.
 Usage
 -----
     source venv/bin/activate
-    python download_models.py
+    python src/download_models.py
 """
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _MODELS_DIR = os.path.join(_HERE, "models")
 os.makedirs(_MODELS_DIR, exist_ok=True)
 os.environ["HF_HOME"] = _MODELS_DIR
