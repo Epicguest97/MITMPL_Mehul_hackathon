@@ -11,11 +11,11 @@
 
 ---
 
-# S&P Global & Crisil Campus Hackathon
+## S&P Global & Crisil Campus Hackathon
 
 **Candidate Name:** Mehul Kaushik
 
-**College Email ID:** kaushikmehul94@gmail.com
+**College Email ID:** mehul.mitmpl2023@learner.manipal.edu
 
 **College / Campus:** Manipal Institute of Technology, MIT Manipal
 
@@ -24,11 +24,11 @@
 **Slide Deck Link :** (link)
 
 ### 1. Project Overview / Problem Statement & Approach
-Financial markets react to breaking news faster than traditional reporting and risk-management workflows can process it. Relevant information is distributed across financial RSS feeds, Reddit discussions, and global event streams, while the effect of an article depends on its entities, sentiment, event type, severity, freshness, and corroboration. A keyword-only or sentiment-only system can therefore produce noisy ticker matches, miss macroeconomic and geopolitical risks, and generate scores that are difficult to connect to actual portfolio decisions.
+Financial markets react to breaking news faster than traditional risk workflows can process it. This project builds an end-to-end financial intelligence platform that ingests news from RSS feeds, Reddit, and global event streams, resolves entities to tickers, and stores deduplicated records in DuckDB.
 
-This project provides an end-to-end financial intelligence and portfolio-risk platform. It concurrently ingests and deduplicates live articles, resolves company names and cashtags to tickers, and stores normalized records in DuckDB. A FinBERT sentiment model estimates directional tone, DeBERTa-v3 zero-shot NLI classifies event categories, and a calibrated impact engine combines magnitude, urgency, geography, and model confidence into a 1–10 market-impact score. Time-decayed and corroboration-aware signals are then exposed through FastAPI APIs and the browser dashboards.
+FinBERT analyzes sentiment, DeBERTa-v3 classifies events, and a calibrated engine generates impact scores using severity, urgency, geography, confidence, freshness, and corroboration. FastAPI and interactive dashboards expose these signals to two decision systems: a 20-stock index rebalancer with 100% allocation constraints and a stress-testing engine for a synthetic $1B wholesale banking portfolio, including P&L and Basel III CET1 impact.
 
-The resulting signals drive two decision layers: a 20-stock blue-chip index rebalancer that preserves a 100% allocation constraint, and a strategic wholesale-banking stress tester for a synthetic $1B portfolio. The latter applies asset-class-specific shocks and reports P&L, balance-sheet effects, and Basel III CET1 capital drawdown. The approach is designed to be reproducible and testable, with causal timestamp filtering to avoid lookahead bias, lazy model loading for practical local execution, and a 65-test automated verification suite.
+The platform emphasizes reproducibility, lookahead-bias prevention, efficient local inference, and automated verification through 65 tests.
 
 ### 2. Architecture & Tech Stack
 ```mermaid
@@ -55,18 +55,11 @@ flowchart LR
 - **Validation:** `pytest` with the repository's 65 automated engine and API tests.
 
 ### 3. Dataset Used
-The platform is primarily an online data-ingestion system rather than a static benchmark trained on a bundled CSV. At runtime it collects current articles from 10+ financial RSS feeds (including Google Finance via Google News RSS, CNBC, WSJ, MarketWatch, Yahoo Finance, Benzinga, Seeking Alpha, and Investing.com), Reddit `r/stocks` and `r/wallstreetbets` feeds, and GDELT 2.0 global news events. Articles are normalized into a common schema, assigned deterministic SHA-1 identifiers for deduplication, enriched with ticker/entity, sentiment, event, and impact fields, and persisted in [`news.duckdb`](news.duckdb).
+The platform ingests live financial news from 10+ RSS feeds, Reddit communities, and GDELT 2.0. Articles are normalized, deduplicated using SHA-1 identifiers, enriched with ticker, sentiment, event, and impact data, and stored in DuckDB.
 
-The financial-news corpus is complemented by controlled data used for portfolio decisions and risk demonstrations. Module A uses a 20-stock blue-chip universe plus a 10-stock reserve pool, while Module B uses a synthetic $1 billion wholesale portfolio spanning loans, bonds, derivatives, and equities. These synthetic portfolio inputs make the rebalancing and stress-test outputs deterministic and safe to demonstrate; they are not presented as historical customer or market holdings. Transformer weights are downloaded separately by `download_models.py` and are used for inference, not trained by this repository.
+Portfolio decisions use a 20-stock blue-chip universe with 10 reserves and a synthetic $1B wholesale banking portfolio spanning loans, bonds, derivatives, and equities. These controlled inputs enable reproducible rebalancing and stress tests without representing real customer holdings. Transformer models are downloaded separately for inference, not trained by the repository.
 
-The tracked [`data/`](data/) directory keeps this evidence lightweight and
-reproducible: [`source_catalog.csv`](data/source_catalog.csv) documents all
-configured live and reference sources, while
-[`articles_sample.jsonl`](data/articles_sample.jsonl) provides three compact
-synthetic records matching the ingestion contract. The optional
-[Hugging Face financial-news-multisource dataset](https://huggingface.co/datasets/Brianferrell787/financial-news-multisource)
-is listed for provenance/reference only; it is not automatically downloaded or
-required by the application.
+The lightweight `data/` directory includes a source catalog and three synthetic sample articles. The Hugging Face financial-news dataset is referenced for provenance but is optional and not required to run the application.
 
 ### 4. Quickstart & Installation
 **Runtime:** macOS or Linux with Python 3.10+ (tested through Python 3.14), Git, and virtualenv.
